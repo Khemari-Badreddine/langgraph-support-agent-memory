@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+
+# LangGraph/LLM SDKs (install and pin as needed):
+# langgraph
+# langchain
+# openai

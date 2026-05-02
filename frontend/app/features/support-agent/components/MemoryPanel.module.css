@@ -1,0 +1,176 @@
+.memoryPanel {
+  width: 224px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--s1);
+  scrollbar-width: thin;
+}
+
+.memoryTitleWrap {
+  border-bottom: 1px solid var(--border);
+  padding: 14px;
+}
+
+.memoryTitle {
+  font-family: var(--font-syne), sans-serif;
+  color: var(--tx2);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.memorySection {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+}
+
+.sectionIssues {
+  color: var(--coral);
+}
+
+.sectionPrefs {
+  color: var(--purple);
+}
+
+.sectionStats {
+  color: var(--amber);
+}
+
+.sectionLabel {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--s2);
+  padding: 8px;
+  animation: memorySlideIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cardNew {
+  border-color: rgba(0, 229, 160, 0.4);
+  background: rgba(0, 229, 160, 0.1);
+}
+
+.cardHead {
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardDate {
+  color: var(--tx3);
+  font-size: 12px;
+}
+
+.issueBadge {
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.statusResolved {
+  background: var(--purple2);
+  color: var(--purple);
+}
+
+.statusNew {
+  background: var(--teal2);
+  color: var(--teal);
+}
+
+.statusOpen {
+  background: var(--coral2);
+  color: var(--coral);
+}
+
+.prefBadge {
+  border-radius: 6px;
+  background: var(--purple2);
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--purple);
+}
+
+.cardText {
+  color: var(--tx2);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.statList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.statLabel {
+  color: var(--tx3);
+  font-size: 12px;
+}
+
+.statValue {
+  color: var(--tx);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.statTeal {
+  color: var(--teal);
+}
+
+.sentimentCoral {
+  color: var(--coral);
+}
+
+.sentimentAmber {
+  color: var(--amber);
+}
+
+.sentimentDefault {
+  color: var(--teal);
+}
+
+@keyframes memorySlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 960px) {
+  .memoryPanel {
+    width: 100%;
+    max-height: 320px;
+  }
+}
