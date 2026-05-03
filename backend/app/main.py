@@ -1,45 +1,22 @@
-import time
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from .schemas import AgentRequest, AgentResponse, AgentResult
+"""
+FastAPI entrypoint for the customer support agent.
+Keep this file focused on app wiring and route definitions.
+"""
 
-# Minimal in-memory memory store (replace with Redis/Postgres in prod)
-memory_store: dict[str, list[str]] = {}
+from fastapi import FastAPI
 
-def get_memory(user_id: str) -> str:
-    return " | ".join(memory_store.get(user_id, [])[-20:])
-
-def append_memory(user_id: str, text: str):
-    memory_store.setdefault(user_id, []).append(text)
-    memory_store[user_id] = memory_store[user_id][-20:]
+from app.agent_service import chat, get_memories
+from app.schemas import ChatRequest, ChatResponse, MemoryResponse
 
 
-app = FastAPI(title="Customer Support Agent Backend")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI(title="Customer Support Agent - Layer 1")
 
 
-@app.get("/health")
-async def health():
-    return {"ok": True}
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(req: ChatRequest):
+    return chat(req.user_id, req.message)
 
 
-@app.post("/agent/respond", response_model=AgentResponse)
-async def respond(payload: AgentRequest):
-    # NOTE: This is a scaffold. Replace the graph/model call with your LangGraph flow.
-    text = payload.text
-    if not text:
-        raise HTTPException(status_code=400, detail="text required")
-
-    memory_context = get_memory(payload.user_id or "default")
-    # Mock reply — replace with real LangGraph invocation
-    reply = f"[mock reply] I received: {text[:200]}"
-    append_memory(payload.user_id or "default", text)
-
-    return AgentResponse(ok=True, result=AgentResult(id=f"msg_{int(time.time()*1000)}", text=reply, source="langgraph", toast=None))
+@app.get("/memories/{user_id}", response_model=MemoryResponse)
+async def get_memories_endpoint(user_id: str):
+    return {"user_id": user_id, "memories": get_memories(user_id)}

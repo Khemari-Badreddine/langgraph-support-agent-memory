@@ -13,6 +13,12 @@
 # testing
 /coverage
 
+
+# backend
+/backend/.venv/
+/backend/app/__pycache__/
+/backend/app/scripts/__pycache__/
+
 # next.js
 /.next/
 /frontend/.next/
