@@ -5,11 +5,9 @@ load_dotenv()
 
 
 # === Gemini API ===
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not set in .env")
-
-print("GEMINI_API_KEY =", GEMINI_API_KEY)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise ValueError("OPENROUTER_API_KEY not set in .env")
 
 # Model config
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-2.5-flash")

@@ -43,7 +43,6 @@ async def main() -> None:
     msg1 = "Hi, my invoice #INV-123 shows $99 but it should be $89. Please fix it."
     print(f"User : {msg1}")
     reply1 = await send(agent_session_1, msg1)
-    reply1 = reply1[0].get("text", "")
 
     print(f"Agent: {reply1}")
 
@@ -63,7 +62,6 @@ async def main() -> None:
     msg2 = "Hey, I'm back. I have another billing question."
     print(f"User : {msg2}")
     reply2 = await send(agent_session_2, msg2)
-    reply2 = reply2[0].get("text", "")
     
     print(f"Agent: {reply2}")
 

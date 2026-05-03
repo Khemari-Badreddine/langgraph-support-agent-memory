@@ -1,11 +1,11 @@
 from langgraph.prebuilt import create_react_agent
 from langmem import create_manage_memory_tool, create_search_memory_tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 from app.store import store
 
 from app.config import (
-    GEMINI_API_KEY,
+    OPENROUTER_API_KEY,
     CHAT_MODEL,
     CHAT_TEMPERATURE,
 )
@@ -27,12 +27,13 @@ Rules:
 
 
 def get_model():
-        return ChatGoogleGenerativeAI(
-            model=CHAT_MODEL,
-            google_api_key=GEMINI_API_KEY,
-            temperature=CHAT_TEMPERATURE,
-        )
 
+    return ChatOpenAI(
+        model=CHAT_MODEL,
+        api_key=OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1",
+        temperature=CHAT_TEMPERATURE,
+    )
 
 
 def build_agent(user_id: str):
@@ -40,7 +41,7 @@ def build_agent(user_id: str):
     Returns a LangGraph agent namespaced to the given user.
     Each user_id gets its own isolated memory namespace.
     """
-    
+
     model = get_model()
     return create_react_agent(
         model=model,
