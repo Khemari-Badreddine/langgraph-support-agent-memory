@@ -1,4 +1,4 @@
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from langmem import create_manage_memory_tool, create_search_memory_tool
 from langchain_openai import ChatOpenAI
 
@@ -42,7 +42,7 @@ def build_agent(user_id: str):
     """
 
     model = get_model()
-    return create_react_agent(
+    return create_agent(
         model=model,
         tools=[
             create_manage_memory_tool(namespace=("memories", user_id)),
