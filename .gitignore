@@ -16,8 +16,8 @@
 
 # backend
 /backend/.venv/
-/backend/app/__pycache__/
-/backend/app/scripts/__pycache__/
+__pycache__/
+*.pyc
 
 # next.js
 /.next/

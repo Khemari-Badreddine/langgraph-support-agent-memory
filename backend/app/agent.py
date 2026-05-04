@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from app.store import store
 
 from app.config import (
-    OPENROUTER_API_KEY,
+    get_openrouter_api_key,
     CHAT_MODEL,
     CHAT_TEMPERATURE,
 )
@@ -27,10 +27,9 @@ Rules:
 
 
 def get_model():
-
     return ChatOpenAI(
         model=CHAT_MODEL,
-        api_key=OPENROUTER_API_KEY,
+        api_key=get_openrouter_api_key(),
         base_url="https://openrouter.ai/api/v1",
         temperature=CHAT_TEMPERATURE,
     )

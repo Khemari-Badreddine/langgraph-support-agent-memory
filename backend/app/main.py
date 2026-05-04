@@ -1,22 +1,26 @@
-"""
-FastAPI entrypoint for the customer support agent.
-Keep this file focused on app wiring and route definitions.
-"""
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import CORS_ORIGINS_LIST
 
-from app.agent_service import chat, get_memories
-from app.schemas import ChatRequest, ChatResponse, MemoryResponse
+from app.routers import chat, memory
+
+app = FastAPI(title="Customer Support Agent API")
+
+# CORS (important for Next.js frontend)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS_LIST,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(chat.router, prefix="/chat", tags=["Chat"])
+app.include_router(memory.router, prefix="/memory", tags=["Memory"])
 
 
-app = FastAPI(title="Customer Support Agent - Layer 1")
-
-
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest):
-    return chat(req.user_id, req.message)
-
-
-@app.get("/memories/{user_id}", response_model=MemoryResponse)
-async def get_memories_endpoint(user_id: str):
-    return {"user_id": user_id, "memories": get_memories(user_id)}
+# Health check (super useful)
+@app.get("/health")
+async def health():
+    return {"ok": True}

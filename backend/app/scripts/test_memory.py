@@ -53,16 +53,16 @@ async def main() -> None:
     await dump_memories(USER_ID, "invoice billing issue")
 
     # ── CALL 2 — New agent instance, same store ───────────────────────────────
-  
+
     print(f"\n{DIVIDER}")
     print("CALL 2 — New session (agent rebuilt from scratch)")
     print(DIVIDER)
 
-    agent_session_2 = build_agent(USER_ID) 
+    agent_session_2 = build_agent(USER_ID)
     msg2 = "Hey, I'm back. I have another billing question."
     print(f"User : {msg2}")
     reply2 = await send(agent_session_2, msg2)
-    
+
     print(f"Agent: {reply2}")
 
     # ── RESULT ───────────────────────────────────────────────────────────────
@@ -74,11 +74,8 @@ async def main() -> None:
 
     if invoice_recalled:
         print("✅ PASS — Agent recalled the invoice in a brand-new session.")
-        print("   Memory is working. Ready for Day 2.")
     else:
         print("❌ FAIL — Agent did not reference the invoice.")
-        print("   Check that manage_memory was called in Call 1 (see snapshot above).")
-        print("   Try rephrasing msg1 to be more explicit about saving the fact.")
 
     # ── FINAL MEMORY DUMP ────────────────────────────────────────────────────
     print(f"\n{DIVIDER}")
