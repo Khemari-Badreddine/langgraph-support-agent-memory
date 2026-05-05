@@ -2,7 +2,7 @@ from langchain.agents import create_agent
 from langmem import create_manage_memory_tool, create_search_memory_tool
 from langchain_openai import ChatOpenAI
 
-from app.store import store
+from app.store import get_store
 
 from app.config import (
     get_openrouter_api_key,
@@ -48,6 +48,6 @@ def build_agent(user_id: str):
             create_manage_memory_tool(namespace=("memories", user_id)),
             create_search_memory_tool(namespace=("memories", user_id)),
         ],
-        store=store,
-        prompt=SYSTEM_PROMPT,
+        store=get_store(),
+        system_prompt=SYSTEM_PROMPT,
     )
