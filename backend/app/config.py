@@ -12,12 +12,12 @@ def get_openrouter_api_key() -> str:
 
 
 # Model config
-CHAT_MODEL = os.getenv("CHAT_MODEL", "gemini-2.5-flash")
+CHAT_MODEL = os.getenv("CHAT_MODEL")
 CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", 0.7))
 
-
+# Cors config
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 CORS_ORIGINS_LIST = [o.strip() for o in CORS_ORIGINS.split(",") if o.strip()]
 
-# App config
+# DB config
 DATABASE_URL = os.getenv("DATABASE_URL")

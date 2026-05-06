@@ -23,7 +23,7 @@ def get_store() -> AsyncPostgresStore:
 
 @asynccontextmanager
 async def store_lifespan() -> AsyncIterator[None]:
-    global _store
+    global _store 
     async with AsyncPostgresStore.from_conn_string(
         DATABASE_URL,
         index={

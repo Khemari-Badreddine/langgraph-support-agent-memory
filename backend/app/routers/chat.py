@@ -51,7 +51,7 @@ async def respond(payload: AgentRequest):
         content=reply,
     )
 
-    # 6. Detect whether new memories were stored this turn
+    # 6. Detect whether new memories were stored
     after = await store.asearch(
         ("memories", payload.user_id),
         query=payload.text,
