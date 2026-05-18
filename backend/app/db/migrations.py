@@ -70,3 +70,4 @@ async def get_session_messages(session_id: str) -> list[dict]:
         }
         for r in rows
     ]
+    

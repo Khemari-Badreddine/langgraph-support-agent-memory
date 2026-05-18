@@ -12,7 +12,6 @@ router = APIRouter()
 async def respond(payload: AgentRequest):
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
-
     store = get_store()
 
     # 1. Load full conversation history for this session from Postgres

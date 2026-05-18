@@ -23,13 +23,9 @@ def get_store() -> AsyncPostgresStore:
 
 @asynccontextmanager
 async def store_lifespan() -> AsyncIterator[None]:
-    global _store 
+    global _store
     async with AsyncPostgresStore.from_conn_string(
-        DATABASE_URL,
-        index={
-            "dims": 1536,
-            "embed": embeddings.embed_documents,
-        },
+        DATABASE_URL,index={"dims": 1536,"embed": embeddings.embed_documents}
     ) as store_instance:
         _store = store_instance
         await _store.setup()
