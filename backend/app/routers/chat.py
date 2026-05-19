@@ -1,9 +1,10 @@
+from uuid import uuid4
+
 from fastapi import APIRouter, HTTPException
 
-from app.agent import build_agent
+from app.agent import run_agent
 from app.db.migrations import load_session, save_message
-from app.schemas import AgentRequest, AgentResponse
-from app.store import get_store
+from app.schemas import AgentRequest, AgentResponse, AgentResult, TraceStep
 
 router = APIRouter()
 
@@ -12,13 +13,16 @@ router = APIRouter()
 async def respond(payload: AgentRequest):
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
-    store = get_store()
+    if not payload.user_id.strip():
+        raise HTTPException(status_code=400, detail="user_id is required.")
+    if not payload.session_id.strip():
+        raise HTTPException(status_code=400, detail="session_id is required.")
 
-    # 1. Load full conversation history for this session from Postgres
+    # 1. Load conversation history for this session from Postgres
     history = await load_session(payload.session_id)
     history.append({"role": "user", "content": payload.text})
 
-    # 2. Persist the user message immediately
+    # 2. Persist user message immediately
     await save_message(
         session_id=payload.session_id,
         user_id=payload.user_id,
@@ -26,45 +30,46 @@ async def respond(payload: AgentRequest):
         content=payload.text,
     )
 
-    # 3. Snapshot memory count so we can detect new writes
-    before = await store.asearch(
-        ("memories", payload.user_id),
-        query=payload.text,
-        limit=100,
-    )
-
-    # 4. Run the agent with full history
-    agent = build_agent(user_id=payload.user_id)
+    # 3. Run the multi-agent graph
     try:
-        result = await agent.ainvoke({"messages": history})
+        output = await run_agent(
+            user_id=payload.user_id,
+            session_id=payload.session_id,
+            history=history,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
 
-    reply = result["messages"][-1].content
-
-    # 5. Persist the assistant reply
+    # 4. Persist assistant reply
     await save_message(
         session_id=payload.session_id,
         user_id=payload.user_id,
         role="assistant",
-        content=reply,
+        content=output["reply"],
     )
 
-    # 6. Detect whether new memories were stored
-    after = await store.asearch(
-        ("memories", payload.user_id),
-        query=payload.text,
-        limit=100,
-    )
-    memories_updated = len(after) > len(before)
+    # 5. Build response
+    trace_steps = [
+        TraceStep(
+            step=t["step"],
+            detail=t["detail"],
+            memories_updated=t.get("memories_updated", False),
+        )
+        for t in output["trace"]
+    ]
+
+    toast = "Memory updated" if output["memories_updated"] else None
 
     return AgentResponse(
         ok=True,
-        result={
-            "id": "msg_" + payload.session_id[-6:],
-            "text": reply,
-            "source": "langgraph",
-            "memories_updated": memories_updated,
-            "toast": "Memory updated" if memories_updated else None,
-        },
+        result=AgentResult(
+            id=f"msg_{uuid4().hex[:8]}",
+            text=output["reply"],
+            source="langgraph",
+            intent=output["intent"],
+            specialist=output["specialist"],
+            trace=trace_steps,
+            memories_updated=output["memories_updated"],
+            toast=toast,
+        ),
     )

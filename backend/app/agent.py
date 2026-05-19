@@ -1,53 +1,33 @@
-from langchain.agents import create_agent
-from langmem import create_manage_memory_tool, create_search_memory_tool
-from langchain_openai import ChatOpenAI
-
-from app.store import get_store
-
-from app.config import (
-    get_openrouter_api_key,
-    CHAT_MODEL,
-    CHAT_TEMPERATURE,
-)
-
-SYSTEM_PROMPT = """
-You are a customer support agent for a SaaS platform called Customer Support Agent.
-
-You have two memory tools:
-- manage_memory  → SAVE important facts about the customer
-- search_memory  → RETRIEVE past facts before every response
-
-Rules:
-1. ALWAYS call search_memory first before composing your reply.
-2. Save any new fact the customer shares: complaints, preferences, personal context.
-3. If an issue is mentioned again, save it with a "RECURRING:" prefix.
-4. Never mention the memory tools to the customer. Use context naturally.
-5. Be concise, warm, and professional.
-"""
+from app.graph import AgentState, graph
 
 
-def get_model():
-    return ChatOpenAI(
-        model=CHAT_MODEL,
-        api_key=get_openrouter_api_key(),
-        base_url="https://openrouter.ai/api/v1",
-        temperature=CHAT_TEMPERATURE,
+async def run_agent(user_id: str, session_id: str, history: list[dict]) -> dict:
+    """
+    Invoke the multi-agent graph and return a structured result.
+    """
+    
+    initial_state: AgentState = {
+        "messages": history,
+        "user_id": user_id,
+        "session_id": session_id,
+        "intent": "",
+        "specialist": "",
+        "trace": [],
+    }
+
+    result: AgentState = await graph.ainvoke(initial_state)
+
+    # The last message in state is the assistant reply
+    reply = result["messages"][-1]["content"]
+
+    memories_updated = any(
+        step.get("memories_updated") for step in result.get("trace", [])
     )
 
-
-def build_agent(user_id: str):
-    """
-    Returns a LangGraph agent namespaced to the given user.
-    Each user_id gets its own isolated memory namespace.
-    """
-
-    model = get_model()
-    return create_agent(
-        model=model,
-        tools=[
-            create_manage_memory_tool(namespace=("memories", user_id)),
-            create_search_memory_tool(namespace=("memories", user_id)),
-        ],
-        store=get_store(),
-        system_prompt=SYSTEM_PROMPT,
-    )
+    return {
+        "reply": reply,
+        "intent": result["intent"],
+        "specialist": result["specialist"],
+        "trace": result["trace"],
+        "memories_updated": memories_updated,
+    }

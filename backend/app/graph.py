@@ -5,7 +5,7 @@ from langgraph.graph import END, StateGraph
 from langchain.agents import create_agent
 from langmem import create_manage_memory_tool, create_search_memory_tool
 
-from app.config import OPENROUTER_API_KEY, CHAT_MODEL, CHAT_TEMPERATURE
+from app.config import get_openrouter_api_key, CHAT_MODEL, CHAT_TEMPERATURE
 from app.prompts import (
     BILLING_PROMPT,
     GENERAL_PROMPT,
@@ -20,7 +20,7 @@ from app.store import get_store
 def make_llm() -> ChatOpenAI:
     return ChatOpenAI(
         model=CHAT_MODEL,
-        api_key=OPENROUTER_API_KEY,
+        api_key=get_openrouter_api_key(),
         base_url="https://openrouter.ai/api/v1",
         temperature=float(CHAT_TEMPERATURE),
     )
@@ -95,7 +95,7 @@ def _specialist_agent(user_id: str, system_prompt: str):
             create_search_memory_tool(namespace=("memories", user_id)),
         ],
         store=get_store(),
-        prompt=system_prompt,
+        system_prompt=system_prompt,
     )
 
 
@@ -111,7 +111,7 @@ async def _run_specialist(state: AgentState, system_prompt: str, node_name: str)
         ("memories", user_id), query=state["messages"][-1]["content"], limit=100
     )
 
-    result = await agent.ainvoke({"messages": state["messages"]})
+    result = await agent.ainvoke({"messages": state["messages"][-20:]})
     reply = result["messages"][-1].content
 
     # Detect memory writes
