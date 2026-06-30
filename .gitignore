@@ -13,6 +13,7 @@
 # testing
 /coverage
 
+/customer_support_agent_v3.html
 
 # backend
 /backend/.venv/

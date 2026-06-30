@@ -1,4 +1,5 @@
 from typing import Literal, TypedDict
+from uuid import uuid4
 
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
@@ -36,7 +37,52 @@ class AgentState(TypedDict):
     trace: list[dict]  # list of {step, detail} for the frontend trace panel
 
 
-# ── Node 1: Triage ────────────────────────────────────────────────────────────
+
+# ── Node: Memory ────────────────────────────────────────────────────────────
+async def memory_node(state: AgentState) -> AgentState:
+    """
+    Runs after every specialist. Extracts and stores facts unconditionally.
+    The LLM doesn't decide whether to save — the harness does.
+    """
+    llm = make_llm()
+    last_user_msg   = next(m for m in reversed(state["messages"]) if m["role"] == "user")
+    last_agent_msg  = next(m for m in reversed(state["messages"]) if m["role"] == "assistant")
+
+    extraction = await llm.ainvoke([
+        {"role": "system", "content": """
+            Extract factual, reusable information from this exchange.
+            Return a JSON list of strings, each a single fact.
+            Example: ["User reported double charge on invoice #INV-123", "User prefers email contact"]
+            If nothing worth storing, return [].
+            Return ONLY the JSON list, nothing else.
+        """},
+        {"role": "user", "content": f"""
+            Customer said: {last_user_msg['content']}
+            Agent replied: {last_agent_msg['content']}
+        """},
+    ])
+
+    import json
+    try:
+        facts = json.loads(extraction.content.strip())
+    except Exception:
+        facts = []
+
+    for fact in facts:
+        await get_store.aput(
+            ("memories", state["user_id"]),
+            key=str(uuid4()),
+            value={"text": fact, "intent": state["intent"]},
+        )
+
+    trace = state.get("trace", [])
+    if facts:
+        trace.append({"step": "memory", "detail": f"Stored {len(facts)} fact(s): {facts}", "memories_updated": True})
+
+    return {**state, "trace": trace}
+
+
+# ── Node: Triage ────────────────────────────────────────────────────────────
 async def triage_node(state: AgentState) -> AgentState:
     """
     Classifies the customer's latest message into an intent.
