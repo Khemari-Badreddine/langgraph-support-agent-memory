@@ -19,8 +19,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user_id    ON sessions (user_id);
 
 async def run() -> None:
     pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute(CREATE_SESSIONS)
+    await pool.execute(CREATE_SESSIONS)
     print("Migrations applied.")
 
 
