@@ -17,6 +17,21 @@ from app.prompts import (
 from app.store import get_store
 
 
+# ── Graph state ───────────────────────────────────────────────────────────────
+class AgentState(TypedDict):
+    messages: list[dict]
+    user_id: str
+    session_id: str
+    intent: str  # set by triage: billing | tech | order | general
+    specialist: str  # human-readable name for the frontend badge
+    trace: list[dict]  # list of {step, detail} for the frontend trace panel
+
+
+
+
+
+
+
 # ── LLM (shared across all nodes) ────────────────────────────────────────────
 def make_llm() -> ChatOpenAI:
     return ChatOpenAI(
@@ -27,14 +42,18 @@ def make_llm() -> ChatOpenAI:
     )
 
 
-# ── Graph state ───────────────────────────────────────────────────────────────
-class AgentState(TypedDict):
-    messages: list[dict]
-    user_id: str
-    session_id: str
-    intent: str  # set by triage: billing | tech | order | general
-    specialist: str  # human-readable name for the frontend badge
-    trace: list[dict]  # list of {step, detail} for the frontend trace panel
+# ── Helper: build a specialist agent with memory tools ───────────────────────
+def _specialist_agent(user_id: str, system_prompt: str):
+    return create_agent(
+        model=make_llm(),
+        tools=[
+            create_manage_memory_tool(namespace=("memories", user_id)),
+            create_search_memory_tool(namespace=("memories", user_id)),
+        ],
+        store=get_store(),
+        system_prompt=system_prompt,
+    )
+
 
 
 
@@ -80,6 +99,7 @@ async def memory_node(state: AgentState) -> AgentState:
         trace.append({"step": "memory", "detail": f"Stored {len(facts)} fact(s): {facts}", "memories_updated": True})
 
     return {**state, "trace": trace}
+
 
 
 # ── Node: Triage ────────────────────────────────────────────────────────────
@@ -131,18 +151,6 @@ async def triage_node(state: AgentState) -> AgentState:
 def route_intent(state: AgentState) -> Literal["billing", "tech", "order", "general"]:
     return state["intent"]  # type: ignore[return-value]
 
-
-# ── Helper: build a specialist agent with memory tools ───────────────────────
-def _specialist_agent(user_id: str, system_prompt: str):
-    return create_agent(
-        model=make_llm(),
-        tools=[
-            create_manage_memory_tool(namespace=("memories", user_id)),
-            create_search_memory_tool(namespace=("memories", user_id)),
-        ],
-        store=get_store(),
-        system_prompt=system_prompt,
-    )
 
 
 # ── Node factory: specialist agents ──────────────────────────────────────────
