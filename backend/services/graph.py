@@ -1,12 +1,13 @@
-from typing import Literal, TypedDict
+from typing import Literal
 from uuid import uuid4
 
-from langchain_openai import ChatOpenAI
-from langgraph.graph import END, StateGraph
-from langchain.agents import create_agent
-from langmem import create_manage_memory_tool, create_search_memory_tool
 
-from app.config import get_openrouter_api_key, CHAT_MODEL, CHAT_TEMPERATURE
+from langgraph.graph import END, StateGraph
+
+
+from services.state import AgentState
+from services.helper import make_llm, _run_specialist
+
 from app.prompts import (
     BILLING_PROMPT,
     GENERAL_PROMPT,
@@ -14,47 +15,8 @@ from app.prompts import (
     TECH_PROMPT,
     TRIAGE_PROMPT,
 )
+
 from app.store import get_store
-
-
-# ── Graph state ───────────────────────────────────────────────────────────────
-class AgentState(TypedDict):
-    messages: list[dict]
-    user_id: str
-    session_id: str
-    intent: str  # set by triage: billing | tech | order | general
-    specialist: str  # human-readable name for the frontend badge
-    trace: list[dict]  # list of {step, detail} for the frontend trace panel
-
-
-
-
-
-
-
-# ── LLM (shared across all nodes) ────────────────────────────────────────────
-def make_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        model=CHAT_MODEL,
-        api_key=get_openrouter_api_key(),
-        base_url="https://openrouter.ai/api/v1",
-        temperature=float(CHAT_TEMPERATURE),
-    )
-
-
-# ── Helper: build a specialist agent with memory tools ───────────────────────
-def _specialist_agent(user_id: str, system_prompt: str):
-    return create_agent(
-        model=make_llm(),
-        tools=[
-            create_manage_memory_tool(namespace=("memories", user_id)),
-            create_search_memory_tool(namespace=("memories", user_id)),
-        ],
-        store=get_store(),
-        system_prompt=system_prompt,
-    )
-
-
 
 
 # ── Node: Memory ────────────────────────────────────────────────────────────
@@ -64,24 +26,35 @@ async def memory_node(state: AgentState) -> AgentState:
     The LLM doesn't decide whether to save — the harness does.
     """
     llm = make_llm()
-    last_user_msg   = next(m for m in reversed(state["messages"]) if m["role"] == "user")
-    last_agent_msg  = next(m for m in reversed(state["messages"]) if m["role"] == "assistant")
+    last_user_msg = next(m for m in reversed(state["messages"]) if m["role"] == "user")
+    last_agent_msg = next(
+        m for m in reversed(state["messages"]) if m["role"] == "assistant"
+    )
 
-    extraction = await llm.ainvoke([
-        {"role": "system", "content": """
+    extraction = await llm.ainvoke(
+        [
+            {
+                "role": "system",
+                "content": """
             Extract factual, reusable information from this exchange.
             Return a JSON list of strings, each a single fact.
             Example: ["User reported double charge on invoice #INV-123", "User prefers email contact"]
             If nothing worth storing, return [].
             Return ONLY the JSON list, nothing else.
-        """},
-        {"role": "user", "content": f"""
+        """,
+            },
+            {
+                "role": "user",
+                "content": f"""
             Customer said: {last_user_msg['content']}
             Agent replied: {last_agent_msg['content']}
-        """},
-    ])
+        """,
+            },
+        ]
+    )
 
     import json
+
     try:
         facts = json.loads(extraction.content.strip())
     except Exception:
@@ -96,10 +69,15 @@ async def memory_node(state: AgentState) -> AgentState:
 
     trace = state.get("trace", [])
     if facts:
-        trace.append({"step": "memory", "detail": f"Stored {len(facts)} fact(s): {facts}", "memories_updated": True})
+        trace.append(
+            {
+                "step": "memory",
+                "detail": f"Stored {len(facts)} fact(s): {facts}",
+                "memories_updated": True,
+            }
+        )
 
     return {**state, "trace": trace}
-
 
 
 # ── Node: Triage ────────────────────────────────────────────────────────────
@@ -149,57 +127,7 @@ async def triage_node(state: AgentState) -> AgentState:
 
 # ── Router: decides which node runs after triage ──────────────────────────────
 def route_intent(state: AgentState) -> Literal["billing", "tech", "order", "general"]:
-    return state["intent"]  # type: ignore[return-value]
-
-
-
-# ── Node factory: specialist agents ──────────────────────────────────────────
-async def _run_specialist(state: AgentState, system_prompt: str, node_name: str) -> AgentState:
-
-    user_id = state["user_id"]
-    agent = _specialist_agent(user_id, system_prompt)
-    store = get_store()
-
-    # Snapshot memory before the call
-    before = await store.asearch(
-        ("memories", user_id), query=state["messages"][-1]["content"], limit=100
-    )
-
-    result = await agent.ainvoke({"messages": state["messages"][-20:]})
-    reply = result["messages"][-1].content
-
-    # Detect memory writes
-    after = await store.asearch(
-        ("memories", user_id), query=state["messages"][-1]["content"], limit=100
-    )
-    memories_updated = len(after) > len(before)
-
-    trace = state.get("trace", [])
-    trace.append(
-        {
-            "step": node_name,
-            "detail": f"{state['specialist']} composed response",
-            "memories_updated": memories_updated,
-        }
-    )
-    if memories_updated:
-        trace.append(
-            {
-                "step": "memory",
-                "detail": f"Memory updated by {state['specialist']}",
-            }
-        )
-
-    # Append assistant reply to messages
-    updated_messages = list(state["messages"]) + [
-        {"role": "assistant", "content": reply}
-    ]
-
-    return {
-        **state,
-        "messages": updated_messages,
-        "trace": trace,
-    }
+    return state["intent"]
 
 
 async def billing_node(state: AgentState) -> AgentState:

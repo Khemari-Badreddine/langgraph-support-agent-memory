@@ -1,4 +1,4 @@
-from app.graph import AgentState, graph
+from services.graph import AgentState, graph
 
 
 async def run_agent(user_id: str, session_id: str, history: list[dict]) -> dict:
