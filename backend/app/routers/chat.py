@@ -58,18 +58,16 @@ async def respond(payload: AgentRequest):
         for t in output["trace"]
     ]
 
-    toast = "Memory updated" if output["memories_updated"] else None
 
     return AgentResponse(
         ok=True,
         result=AgentResult(
             id=f"msg_{uuid4().hex[:8]}",
             text=output["reply"],
-            source="langgraph",
             intent=output["intent"],
             specialist=output["specialist"],
             trace=trace_steps,
             memories_updated=output["memories_updated"],
-            toast=toast,
+
         ),
     )

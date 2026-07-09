@@ -1,9 +1,7 @@
 from typing import Literal
 from uuid import uuid4
 
-
 from langgraph.graph import END, StateGraph
-
 
 from services.state import AgentState
 from services.helper import make_llm, _run_specialist
@@ -130,6 +128,10 @@ def route_intent(state: AgentState) -> Literal["billing", "tech", "order", "gene
     return state["intent"]
 
 
+async def general_node(state: AgentState) -> AgentState:
+    return await _run_specialist(state, GENERAL_PROMPT, "general")
+
+
 async def billing_node(state: AgentState) -> AgentState:
     return await _run_specialist(state, BILLING_PROMPT, "billing")
 
@@ -142,8 +144,7 @@ async def order_node(state: AgentState) -> AgentState:
     return await _run_specialist(state, ORDER_PROMPT, "order")
 
 
-async def general_node(state: AgentState) -> AgentState:
-    return await _run_specialist(state, GENERAL_PROMPT, "general")
+
 
 
 # ── Build and compile the graph ───────────────────────────────────────────────

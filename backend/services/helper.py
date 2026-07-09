@@ -54,6 +54,7 @@ async def _run_specialist(
     )
     memories_updated = len(after) > len(before)
 
+    # Updating the trace
     trace = state.get("trace", [])
     trace.append(
         {

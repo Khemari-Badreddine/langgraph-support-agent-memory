@@ -8,7 +8,7 @@ class AgentRequest(BaseModel):
 
 
 class TraceStep(BaseModel):
-    step: str               # triage | billing | tech | order | general | memory
+    step: str               # triage | billing | tech | order | gseneral | memory
     detail: str
     memories_updated: bool = False
 
@@ -16,12 +16,10 @@ class TraceStep(BaseModel):
 class AgentResult(BaseModel):
     id: str
     text: str
-    source: str             # "langgraph"
     intent: str             # billing | tech | order | general
     specialist: str         # "Billing Agent" etc — shown in routing badge
     trace: list[TraceStep]  # shown in expandable trace panel
     memories_updated: bool = False
-    toast: str | None = None
 
 
 class AgentResponse(BaseModel):
