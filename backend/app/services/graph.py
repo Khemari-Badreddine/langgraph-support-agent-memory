@@ -1,10 +1,11 @@
 from typing import Literal
 from uuid import uuid4
+import json
 
 from langgraph.graph import END, StateGraph
 
-from services.state import AgentState
-from services.helper import make_llm, _run_specialist
+from app.services.state import AgentState
+from app.services.helper import make_llm, _run_specialist_agent
 
 from app.prompts import (
     BILLING_PROMPT,
@@ -12,6 +13,7 @@ from app.prompts import (
     ORDER_PROMPT,
     TECH_PROMPT,
     TRIAGE_PROMPT,
+    MEMORY_PROMPT,
 )
 
 from app.store import get_store
@@ -24,6 +26,9 @@ async def memory_node(state: AgentState) -> AgentState:
     The LLM doesn't decide whether to save — the harness does.
     """
     llm = make_llm()
+    store = get_store()
+    trace = state.get("trace", [])
+
     last_user_msg = next(m for m in reversed(state["messages"]) if m["role"] == "user")
     last_agent_msg = next(
         m for m in reversed(state["messages"]) if m["role"] == "assistant"
@@ -33,39 +38,38 @@ async def memory_node(state: AgentState) -> AgentState:
         [
             {
                 "role": "system",
-                "content": """
-            Extract factual, reusable information from this exchange.
-            Return a JSON list of strings, each a single fact.
-            Example: ["User reported double charge on invoice #INV-123", "User prefers email contact"]
-            If nothing worth storing, return [].
-            Return ONLY the JSON list, nothing else.
-        """,
+                "content": MEMORY_PROMPT,
             },
             {
                 "role": "user",
                 "content": f"""
             Customer said: {last_user_msg['content']}
-            Agent replied: {last_agent_msg['content']}
-        """,
+            Agent replied: {last_agent_msg['content']} """,
             },
         ]
     )
-
-    import json
 
     try:
         facts = json.loads(extraction.content.strip())
     except Exception:
         facts = []
 
+    # Saving memories with aggresive Deduplication
     for fact in facts:
-        await get_store.aput(
+        
+        existing = await store.asearch(
+            ("memories", state["user_id"]), query=fact, limit=1
+        )
+
+        if existing and existing[0].score > 0.9:
+            continue
+
+        await store.aput(
             ("memories", state["user_id"]),
             key=str(uuid4()),
             value={"text": fact, "intent": state["intent"]},
         )
 
-    trace = state.get("trace", [])
     if facts:
         trace.append(
             {
@@ -85,6 +89,7 @@ async def triage_node(state: AgentState) -> AgentState:
     Uses a cheap, fast LLM call
     no memory tools needed here.
     """
+
     llm = make_llm()
     last_message = state["messages"][-1]["content"]
 
@@ -129,34 +134,36 @@ def route_intent(state: AgentState) -> Literal["billing", "tech", "order", "gene
 
 
 async def general_node(state: AgentState) -> AgentState:
-    return await _run_specialist(state, GENERAL_PROMPT, "general")
+    return await _run_specialist_agent(state, GENERAL_PROMPT, "general")
 
 
 async def billing_node(state: AgentState) -> AgentState:
-    return await _run_specialist(state, BILLING_PROMPT, "billing")
+    return await _run_specialist_agent(state, BILLING_PROMPT, "billing")
 
 
 async def tech_node(state: AgentState) -> AgentState:
-    return await _run_specialist(state, TECH_PROMPT, "tech")
+    return await _run_specialist_agent(state, TECH_PROMPT, "tech")
 
 
 async def order_node(state: AgentState) -> AgentState:
-    return await _run_specialist(state, ORDER_PROMPT, "order")
-
-
-
+    return await _run_specialist_agent(state, ORDER_PROMPT, "order")
 
 
 # ── Build and compile the graph ───────────────────────────────────────────────
 def build_graph():
     builder = StateGraph(AgentState)
 
+    # Helper Nodes
     builder.add_node("triage", triage_node)
+    builder.add_node("memory", memory_node)
+
+    # Main Nodes
     builder.add_node("billing", billing_node)
     builder.add_node("tech", tech_node)
     builder.add_node("order", order_node)
     builder.add_node("general", general_node)
 
+    # Graph Starts
     builder.set_entry_point("triage")
 
     builder.add_conditional_edges(
@@ -170,10 +177,12 @@ def build_graph():
         },
     )
 
-    builder.add_edge("billing", END)
-    builder.add_edge("tech", END)
-    builder.add_edge("order", END)
-    builder.add_edge("general", END)
+    builder.add_edge("billing", "memory")
+    builder.add_edge("tech", "memory")
+    builder.add_edge("order", "memory")
+    builder.add_edge("general", "memory")
+
+    builder.add_edge("memory", END)
 
     return builder.compile()
 

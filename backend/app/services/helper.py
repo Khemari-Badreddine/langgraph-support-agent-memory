@@ -5,7 +5,7 @@ from langmem import create_manage_memory_tool, create_search_memory_tool
 from app.config import get_openrouter_api_key, CHAT_MODEL, CHAT_TEMPERATURE
 from app.store import get_store
 
-from services.state import AgentState
+from app.services.state import AgentState
 
 
 # ── LLM (shared across all nodes) ────────────────────────────────────────────
@@ -19,58 +19,64 @@ def make_llm() -> ChatOpenAI:
 
 
 # ── Helper: build a specialist agent with memory tools ───────────────────────
-def _build_specialist_agent(user_id: str, system_prompt: str):
+def _build_specialist_agent(system_prompt: str):
     return create_agent(
         model=make_llm(),
-        tools=[
-            create_manage_memory_tool(namespace=("memories", user_id)),
-            create_search_memory_tool(namespace=("memories", user_id)),
-        ],
-        store=get_store(),
         system_prompt=system_prompt,
     )
 
 
+async def get_progressive_content(user_id, query) -> str:
+
+    store = get_store()
+    namespace = ("memories", user_id)
+
+    # Layer 1: Most recent Memories
+    all_memories = await store.alist(namespace)
+    recent = [str(m.value) for m in all_memories[-3:]]
+
+    # Layer 2: Most relevant Memories
+    relevant = [
+        str(m.value)
+        for m in await store.asearch(namespace=namespace, query=query, limit=3)
+    ]
+
+    # Aggressive Deduplication
+
+    seen, unique = set(), []
+
+    for val in [*recent, *relevant]:
+        if val not in seen:
+            seen.add(val)
+            unique.appen(val)
+
+    return "Customer history:\n" + "\n".join(f"- {v}" for v in unique)
+
+
 # ── Node factory: specialist agents ──────────────────────────────────────────
-async def _run_specialist(
+async def _run_specialist_agent(
     state: AgentState, system_prompt: str, node_name: str
 ) -> AgentState:
 
-    user_id = state["user_id"]
-    agent = _build_specialist_agent(user_id, system_prompt)
-    store = get_store()
-
-    # Snapshot memory before the call
-    before = await store.asearch(
-        ("memories", user_id), query=state["messages"][-1]["content"], limit=100
+    context = get_progressive_content(
+        state["user_id"], state["messages"][-1]["content"]
     )
+    full_prompt = f"{system_prompt}\n\n{context}"
+
+    agent = _build_specialist_agent(full_prompt)
+    trace = state.get("trace", [])
 
     result = await agent.ainvoke({"messages": state["messages"][-20:]})
     reply = result["messages"][-1].content
 
-    # Detect memory writes
-    after = await store.asearch(
-        ("memories", user_id), query=state["messages"][-1]["content"], limit=100
-    )
-    memories_updated = len(after) > len(before)
-
     # Updating the trace
-    trace = state.get("trace", [])
     trace.append(
         {
             "step": node_name,
             "detail": f"{state['specialist']} composed response",
-            "memories_updated": memories_updated,
+            "memories_updated": False,
         }
     )
-
-    if memories_updated:
-        trace.append(
-            {
-                "step": "memory",
-                "detail": f"Memory updated by {state['specialist']}",
-            }
-        )
 
     # Append assistant reply to messages
     updated_messages = list(state["messages"]) + [

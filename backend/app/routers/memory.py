@@ -6,5 +6,5 @@ router = APIRouter()
 @router.get("/{user_id}")
 async def get_memory(user_id: str):
     store = get_store()
-    items = store.search(("memories", user_id))
+    items = await store.asearch(("memories", user_id))
     return {"memories": [item.value for item in items]}
