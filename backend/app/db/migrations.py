@@ -55,6 +55,19 @@ async def delete_session(session_id: str) -> int:
     return int(result.split()[-1])
 
 
+async def delete_memory_rows(user_id: str) -> int:
+    pool = await get_pool()
+    result = await pool.execute(
+        """
+        DELETE FROM store
+        WHERE prefix = $1
+           OR prefix LIKE $2
+        """,
+        f"memories.{user_id}",
+        f"memories.{user_id}.%",
+    )
+    return int(result.split()[-1])
+
 async def get_session_messages(session_id: str) -> list[dict]:
     pool = await get_pool()
     rows = await pool.fetch(

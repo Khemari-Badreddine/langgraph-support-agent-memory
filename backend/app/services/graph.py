@@ -67,7 +67,7 @@ async def memory_node(state: AgentState) -> AgentState:
         await store.aput(
             ("memories", state["user_id"]),
             key=str(uuid4()),
-            value={"text": fact, "intent": state["intent"]},
+            value={"value": fact},
         )
 
     if facts:

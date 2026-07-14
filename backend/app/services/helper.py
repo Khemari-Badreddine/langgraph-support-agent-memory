@@ -31,14 +31,18 @@ async def get_progressive_content(user_id, query) -> str:
     store = get_store()
     namespace = ("memories", user_id)
 
+    def memory_text(item) -> str:
+        value = getattr(item, "value", item)
+        return str(value.get("value", value))
+
     # Layer 1: Most recent Memories
-    all_memories = await store.alist(namespace)
-    recent = [str(m.value) for m in all_memories[-3:]]
+    all_memories = await store.asearch(namespace,limit=100)
+    recent = [memory_text(m) for m in all_memories[-3:]]
 
     # Layer 2: Most relevant Memories
     relevant = [
-        str(m.value)
-        for m in await store.asearch(namespace=namespace, query=query, limit=3)
+        memory_text(m)
+        for m in await store.asearch(namespace, query=query, limit=3)
     ]
 
     # Aggressive Deduplication
@@ -48,7 +52,7 @@ async def get_progressive_content(user_id, query) -> str:
     for val in [*recent, *relevant]:
         if val not in seen:
             seen.add(val)
-            unique.appen(val)
+            unique.append(val)
 
     return "Customer history:\n" + "\n".join(f"- {v}" for v in unique)
 
@@ -58,9 +62,10 @@ async def _run_specialist_agent(
     state: AgentState, system_prompt: str, node_name: str
 ) -> AgentState:
 
-    context = get_progressive_content(
+    context = await get_progressive_content(
         state["user_id"], state["messages"][-1]["content"]
     )
+    
     full_prompt = f"{system_prompt}\n\n{context}"
 
     agent = _build_specialist_agent(full_prompt)

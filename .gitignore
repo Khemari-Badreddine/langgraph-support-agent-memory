@@ -17,6 +17,7 @@
 
 # backend
 /backend/.venv/
+/backend/app/scripts/
 __pycache__/
 *.pyc
 
