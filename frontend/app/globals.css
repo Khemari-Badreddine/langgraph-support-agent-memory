@@ -1,26 +1,45 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg: #080A14;
+  --s1: #0F1120;
+  --s2: #161929;
+  --s3: #1E2235;
+  --s4: #252A42;
+  --b: rgba(255, 255, 255, 0.06);
+  --b2: rgba(255, 255, 255, 0.11);
+  --b3: rgba(255, 255, 255, 0.18);
+  --teal: #00E5A0;
+  --tq: rgba(0, 229, 160, 0.08);
+  --tqm: rgba(0, 229, 160, 0.18);
+  --coral: #FF6B4A;
+  --cq: rgba(255, 107, 74, 0.08);
+  --cqm: rgba(255, 107, 74, 0.18);
+  --purple: #A78BFA;
+  --pq: rgba(167, 139, 250, 0.08);
+  --pqm: rgba(167, 139, 250, 0.2);
+  --amber: #FBBF24;
+  --aq: rgba(251, 191, 36, 0.08);
+  --blue: #60A5FA;
+  --bq: rgba(96, 165, 250, 0.08);
+  --tx: #DDE0F5;
+  --tx2: #7B80A0;
+  --tx3: #3A3F5C;
+  --tx4: #262A3E;
+  --mono: 'DM Mono', monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
 }

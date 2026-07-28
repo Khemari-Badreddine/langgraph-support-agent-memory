@@ -1,0 +1,31 @@
+.mem { width: 200px; background: var(--s1); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; scrollbar-width: thin; scrollbar-color: var(--s4) transparent; }
+.memHead { padding: 12px 13px 8px; border-bottom: 1px solid var(--b); }
+.liveSec { padding: 9px 13px; border-bottom: 1px solid var(--b); }
+.liveTitle { font-size: 9px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--teal); margin-bottom: 7px; display: flex; align-items: center; gap: 5px; }
+.liveDot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); animation: pdot 1.5s infinite; }
+
+.msec { padding: 9px 13px; border-bottom: 1px solid var(--b); }
+.msecTitle { font-size: 9px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 7px; }
+.msecTitleIss { color: var(--coral); }
+.msecTitlePrf { color: var(--purple); }
+.msecTitleSts { color: var(--amber); }
+.mcard { background: var(--s2); border: 1px solid var(--b); border-radius: 9px; padding: 7px 9px; margin-bottom: 5px; }
+.mcardFlash { border-color: rgba(0, 229, 160, .4); background: var(--tq); animation: flashIn .5s ease; }
+@keyframes flashIn { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+.mcardTop { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.mcardDate { font-size: 9px; color: var(--tx3); }
+.mbadge { font-size: 8px; font-weight: 700; padding: 2px 6px; border-radius: 10px; text-transform: uppercase; letter-spacing: .3px; }
+.mbadgeRes { background: var(--tq); color: var(--teal); }
+.mbadgeOpen { background: var(--cq); color: var(--coral); }
+.mbadgePref { background: var(--pq); color: var(--purple); }
+.mbadgeNewb { background: var(--tqm); color: var(--teal); }
+.mcardTxt { font-size: 10.5px; color: var(--tx2); line-height: 1.4; }
+.mcardTxt strong { color: var(--tx); font-weight: 600; }
+.srow { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+.slabel { font-size: 10.5px; color: var(--tx3); }
+.sval { font-size: 11.5px; font-weight: 600; color: var(--tx); }
+.svalT { color: var(--teal); }
+.svalC { color: var(--coral); }
+.svalA { color: var(--amber); }
+
+.panelLabel { font-size: 9px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--tx3); }

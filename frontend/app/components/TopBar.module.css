@@ -1,0 +1,13 @@
+.top { background: var(--s1); border-bottom: 1px solid var(--b); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.logo { display: flex; align-items: center; gap: 9px; }
+.logoMark { width: 26px; height: 26px; background: var(--teal); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+.logoMark svg { width: 15px; height: 15px; }
+.logoText { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; color: var(--tx); letter-spacing: -.3px; }
+.logoText span { color: var(--teal); }
+.topRight { display: flex; align-items: center; gap: 7px; }
+.pill { background: var(--s3); border: 1px solid var(--b2); border-radius: 20px; padding: 3px 10px; font-size: 10.5px; color: var(--tx2); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); animation: pdot 2s infinite; }
+@keyframes pdot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.topBtn { background: var(--s2); border: 1px solid var(--b2); border-radius: 20px; padding: 4px 11px; font-size: 10.5px; color: var(--tx2); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .15s; display: flex; align-items: center; gap: 5px; }
+.topBtn:hover { border-color: rgba(0, 229, 160, .3); color: var(--teal); }
+.topBtnDanger:hover { border-color: rgba(255, 107, 74, .3); color: var(--coral); }

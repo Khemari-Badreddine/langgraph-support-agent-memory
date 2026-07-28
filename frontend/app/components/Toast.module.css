@@ -1,0 +1,3 @@
+.liveItem { display: none; background: var(--tq); border: 1px solid rgba(0, 229, 160, .18); border-radius: 8px; padding: 6px 9px; font-size: 10.5px; color: var(--teal); line-height: 1.4; margin-bottom: 5px; }
+.liveItemShow { display: block; animation: fadeSlide .35s ease; }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }

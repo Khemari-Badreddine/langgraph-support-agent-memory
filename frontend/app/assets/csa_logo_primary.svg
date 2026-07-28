@@ -1,0 +1,42 @@
+<svg width="820" height="120" viewBox="0 0 820 120" role="img" xmlns="http://www.w3.org/2000/svg">
+  <title>Customer Support Agent Logo</title>
+  <desc>Horizontal banner with brand icon and single-line display wordmark.</desc>
+
+  <defs>
+    <!-- Import modern extra-wide display fonts from Google Fonts to match the screenshot -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&amp;family=Space+Grotesk:wght@700&amp;family=Unbounded:wght@800&amp;display=swap');
+      .main-text {
+        font-family: 'Syne', 'Unbounded', 'Space Grotesk', system-ui, -apple-system, sans-serif;
+        font-size: 42px;
+        font-weight: 800;
+        letter-spacing: -0.015em;
+      }
+    </style>
+  </defs>
+
+  <!-- Scaled and repositioned original logo badge -->
+  <g transform="translate(-8.638, -20.729) scale(0.7273)">
+    <rect x="60" y="56" width="110" height="110" rx="24" fill="#161929"/>
+    <rect x="60" y="56" width="110" height="110" rx="24" fill="none" stroke="#252A42" stroke-width="1"/>
+
+    <rect x="79" y="74" width="72" height="52" rx="10" fill="#00E5A0"/>
+    <polygon points="85,126 79,143 106,126" fill="#00E5A0"/>
+
+    <line x1="106" y1="100" x2="110" y2="100" stroke="#082B1C" stroke-width="2"/>
+    <line x1="121" y1="100" x2="125" y2="100" stroke="#082B1C" stroke-width="2"/>
+    <circle cx="100" cy="100" r="6" fill="#082B1C"/>
+    <circle cx="115" cy="100" r="6" fill="#082B1C"/>
+    <circle cx="130" cy="100" r="6" fill="#082B1C"/>
+    <circle cx="100" cy="100" r="2.5" fill="#00E5A0" opacity="0.45"/>
+    <circle cx="115" cy="100" r="2.5" fill="#00E5A0" opacity="0.45"/>
+    <circle cx="130" cy="100" r="2.5" fill="#00E5A0" opacity="0.45"/>
+
+    <circle cx="162" cy="64" r="11" fill="#0F1120"/>
+    <circle cx="162" cy="64" r="9" fill="#FF6B4A"/>
+    <circle cx="162" cy="64" r="3.5" fill="#FF9B7A"/>
+  </g>
+
+  <!-- Typography matching the single-line layout and color values -->
+  <text x="140" y="75" class="main-text" fill="#E2E5F2">Customer Support <tspan fill="#00E5A0">Agent</tspan></text>
+</svg>

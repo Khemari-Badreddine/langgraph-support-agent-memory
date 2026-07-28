@@ -1,0 +1,207 @@
+import React from 'react';
+import styles from './MemoryPanel.module.css';
+import { User } from '../types';
+import { Toast } from './Toast';
+
+// Props received from the parent component
+interface MemoryPanelProps {
+  currentUser: User;
+  sessionId: string;
+  sessionCount: number;
+  live1: string | null;
+  live2: string | null;
+  addedIssues: { text: string; date: string; flash: boolean; id: number }[];
+  openPlus: number;
+  dynMood: { mood: string; cls: string } | null;
+}
+
+export function MemoryPanel({
+  currentUser,
+  sessionId,
+  sessionCount,
+  live1,
+  live2,
+  addedIssues,
+  openPlus,
+  dynMood
+}: MemoryPanelProps) {
+
+  // If the mood changed during the conversation, display it.
+  // Otherwise use the user's original mood.
+
+
+  return (
+    <div className={styles.mem}>
+
+      {/* Panel Header */}
+      <div className={styles.memHead}>
+        <div className={styles.panelLabel}>Memory</div>
+      </div>
+
+      {/* Live memory updates (temporary toast notifications) */}
+      <div className={styles.liveSec}>
+        <div className={styles.liveTitle}>
+          <div className={styles.liveDot}></div>
+          Live updates
+        </div>
+
+        <Toast message={live1} />
+        <Toast message={live2} />
+      </div>
+
+      {/* ================= Issues ================= */}
+      <div className={styles.msec}>
+        <div className={`${styles.msecTitle} ${styles.msecTitleIss}`}>
+          Issues
+        </div>
+
+        {/* If there are no existing or newly-added issues */}
+        {currentUser.issues.length === 0 && addedIssues.length === 0 ? (
+          <div
+            style={{
+              fontSize: '10.5px',
+              color: 'var(--tx3)',
+              padding: '4px 0'
+            }}
+          >
+            No issues on record
+          </div>
+        ) : (
+          <>
+            {/* Existing issues already stored for this customer */}
+            {currentUser.issues.map((i, idx) => (
+              <div key={idx} className={styles.mcard}>
+                <div className={styles.mcardTop}>
+
+                  <span className={styles.mcardDate}>
+                    {i.date}
+                  </span>
+
+                  {/* Badge changes color and text depending on status */}
+                  <span
+                    className={`${styles.mbadge} ${i.badge === 'res'
+                        ? styles.mbadgeRes
+                        : styles.mbadgeOpen
+                      }`}
+                  >
+                    {i.badge === 'res' ? 'resolved' : 'open'}
+                  </span>
+
+                </div>
+
+                {/* Render HTML stored inside the issue text */}
+                <div
+                  className={styles.mcardTxt}
+                  dangerouslySetInnerHTML={{ __html: i.text }}
+                />
+              </div>
+            ))}
+
+            {/* Issues created during the current chat session */}
+            {addedIssues.map(i => (
+              <div
+                key={i.id}
+                className={`${styles.mcard} ${i.flash ? styles.mcardFlash : ''
+                  }`}
+              >
+                <div className={styles.mcardTop}>
+                  <span className={styles.mcardDate}>
+                    {i.date}
+                  </span>
+
+                  <span className={`${styles.mbadge} ${styles.mbadgeNewb}`}>
+                    new
+                  </span>
+                </div>
+
+                <div className={styles.mcardTxt}>
+                  {i.text}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ================= Preferences ================= */}
+      <div className={styles.msec}>
+        <div className={`${styles.msecTitle} ${styles.msecTitlePrf}`}>
+          Preferences
+        </div>
+
+        {/* No stored preferences */}
+        {currentUser.prefs.length === 0 ? (
+          <div
+            style={{
+              fontSize: '10.5px',
+              color: 'var(--tx3)',
+              padding: '4px 0'
+            }}
+          >
+            No preferences stored
+          </div>
+        ) : (
+          // Display each stored preference
+          currentUser.prefs.map((p, idx) => (
+            <div key={idx} className={styles.mcard}>
+              <div className={styles.mcardTop}>
+                <span className={styles.mcardDate}>
+                  stored
+                </span>
+
+                <span className={`${styles.mbadge} ${styles.mbadgePref}`}>
+                  pref
+                </span>
+              </div>
+
+              <div
+                className={styles.mcardTxt}
+                dangerouslySetInnerHTML={{ __html: p.text }}
+              />
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ================= Statistics ================= */}
+      <div className={styles.msec}>
+        <div className={`${styles.msecTitle} ${styles.msecTitleSts}`}>
+          Stats
+        </div>
+
+        {/* Total conversations */}
+        <div className={styles.srow}>
+          <span className={styles.slabel}>Sessions</span>
+          <span className={`${styles.sval} ${styles.svalT}`}>
+            {sessionCount}
+          </span>
+        </div>
+
+        {/* Existing + newly added issues */}
+        <div className={styles.srow}>
+          <span className={styles.slabel}>Open issues</span>
+          <span className={styles.sval}>
+            {currentUser.openIssues + openPlus}
+          </span>
+        </div>
+
+        {/* Current customer sentiment */}
+  
+
+        {/* Current session ID */}
+        <div className={styles.srow}>
+          <span className={styles.slabel}>Session ID</span>
+          <span
+            className={styles.sval}
+            style={{
+              fontSize: '9px',
+              color: 'var(--tx3)'
+            }}
+          >
+            {sessionId}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
