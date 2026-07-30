@@ -1,6 +1,8 @@
 from typing import Literal
 from uuid import uuid4
 import json
+import hashlib
+import hashlib
 
 from langgraph.graph import END, StateGraph
 
@@ -19,65 +21,105 @@ from app.prompts import (
 from app.store import get_store
 
 
-# ── Node: Memory ────────────────────────────────────────────────────────────
+
+def make_issue_id(text: str) -> str:
+    return hashlib.md5(text.lower().strip().encode()).hexdigest()[:8]
+
+
 async def memory_node(state: AgentState) -> AgentState:
-    """
-    Runs after every specialist. Extracts and stores facts unconditionally.
-    The LLM doesn't decide whether to save — the harness does.
-    """
-    llm = make_llm()
+    llm   = make_llm()
     store = get_store()
     trace = state.get("trace", [])
 
-    last_user_msg = next(m for m in reversed(state["messages"]) if m["role"] == "user")
-    last_agent_msg = next(
-        m for m in reversed(state["messages"]) if m["role"] == "assistant"
-    )
+    last_user_msg  = next(m for m in reversed(state["messages"]) if m["role"] == "user")
+    last_agent_msg = next(m for m in reversed(state["messages"]) if m["role"] == "assistant")
 
-    extraction = await llm.ainvoke(
-        [
-            {
-                "role": "system",
-                "content": MEMORY_PROMPT,
-            },
-            {
-                "role": "user",
-                "content": f"""
-            Customer said: {last_user_msg['content']}
-            Agent replied: {last_agent_msg['content']} """,
-            },
-        ]
-    )
+    # Fetch existing open issues so the LLM can avoid duplicates
+    all_stored = await store.asearch(("memories", state["user_id"]))
+    open_texts = [
+        item.value.get("text", "")
+        for item in all_stored
+        if item.value.get("badge") == "open"
+    ]
 
-    try:
-        facts = json.loads(extraction.content.strip())
-    except Exception:
-        facts = []
+    extraction = await llm.ainvoke([
+        {"role": "system", "content": MEMORY_PROMPT},
+        {"role": "user", "content": f"""
+        Existing open issues for this customer:
+        {chr(10).join('- ' + t for t in open_texts) if open_texts else '(none)'}
 
-    # Saving memories with aggresive Deduplication
-    for fact in facts:
-        
-        existing = await store.asearch(
-            ("memories", state["user_id"]), query=fact, limit=1
-        )
+        Customer said: {last_user_msg['content']}
+        Agent replied: {last_agent_msg['content']}
+        """},
+    ])
 
-        if existing and existing[0].score > 0.9:
+    issues = json.loads(extraction.content.strip())
+    if not isinstance(issues, list):
+        issues = []
+
+    stored, updated = 0, 0
+
+    for issue in issues:
+        text  = issue.get("text", "").strip()
+        badge = issue.get("badge", "open")
+        date  = issue.get("date", "Today")
+        if not text:
             continue
 
+        if badge == "res":
+            open_items = [
+                item for item in all_stored
+                if item.value.get("badge") == "open"
+            ]
+            if open_items:
+                open_texts_list = [item.value.get("text", "") for item in open_items]
+                match_prompt = (
+                    f"The customer just confirmed this issue is resolved:\n  {text}\n\n"
+                    f"Which of the following open issues (if any) does this refer to?\n"
+                    + "\n".join(f"  [{i}] {t}" for i, t in enumerate(open_texts_list))
+                    + "\n\nReturn ONLY the index number (e.g. 0) of the matching issue, "
+                      "or -1 if none match. No explanation, no markdown, just the number."
+                )
+                match_resp = await llm.ainvoke([
+                    {"role": "system", "content": "You match resolved issues to open issues by index."},
+                    {"role": "user", "content": match_prompt},
+                ])
+                try:
+                    idx = int(match_resp.content.strip())
+                    if 0 <= idx < len(open_items):
+                        target = open_items[idx]
+                        await store.aput(
+                            ("memories", state["user_id"]),
+                            key=target.key,
+                            value={
+                                "date": target.value.get("date", "Today"),
+                                "badge": "res",
+                                "text": target.value.get("text", ""),
+                            },
+                        )
+                        updated += 1
+                except ValueError:
+                    pass
+            continue
+
+        # Open issue: store with deterministic key
+        issue_id = make_issue_id(text)
         await store.aput(
             ("memories", state["user_id"]),
-            key=str(uuid4()),
-            value={"value": fact},
+            key=issue_id,
+            value={"date": date, "badge": "open", "text": text},
         )
+        stored += 1
 
-    if facts:
-        trace.append(
-            {
-                "step": "memory",
-                "detail": f"Stored {len(facts)} fact(s): {facts}",
-                "memories_updated": True,
-            }
-        )
+    if stored or updated:
+        parts = []
+        if stored:  parts.append(f"{stored} stored")
+        if updated: parts.append(f"{updated} resolved")
+        trace.append({
+            "step":             "memory",
+            "detail":           f"Memory: {', '.join(parts)}",
+            "memories_updated": True,
+        })
 
     return {**state, "trace": trace}
 

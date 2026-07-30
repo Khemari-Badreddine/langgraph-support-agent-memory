@@ -6,10 +6,29 @@ Specialists receive customer context via get_progressive_context injection.
 
 MEMORY_PROMPT = """
 Extract factual, reusable information from this exchange.
-Return a JSON list of strings, each a single fact.
-Example: ["User reported double charge on invoice #INV-123", "User prefers email contact"]
-If nothing worth storing, return [].
-Return ONLY the JSON list, nothing else.
+Return a JSON list of objects, each with:
+  - "text": a clear, specific description of the issue or fact
+  - "badge": "open" for new or unresolved, "res" for confirmed resolved
+  - "date": "Today" or a short date like "Apr 20"
+
+Existing open issues are listed at the top of the user message. Do NOT output
+any issue that already exists in that list — it's a duplicate. Only return
+genuinely new information or status changes (open → resolved).
+
+Rules:
+- Be specific in "text" — include invoice numbers, order IDs, error names where mentioned.
+- If the customer confirms a previous issue is resolved, output it with badge "res".
+- If the same issue appears again as unresolved and already exists in the open list,
+  omit it entirely (it's a duplicate).
+- Preferences and contact info are not issues — omit them here.
+- If nothing worth storing, return [].
+- Return ONLY the JSON list. No markdown, no explanation.
+
+Example:
+[
+  {"text": "Double charge on invoice INV-123", "badge": "open", "date": "Today"},
+  {"text": "Login timeout error", "badge": "res", "date": "Apr 22"}
+]
 """
 
 

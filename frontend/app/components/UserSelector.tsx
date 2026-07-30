@@ -25,8 +25,6 @@ export function UserSelector({ onConfirm }: UserSelectorProps) {
         color: 'linear-gradient(135deg,#1E2235,#252A42)',
         sessions: 0,
         openIssues: 0,
-        mood: '—',
-        moodCls: '',
         issues: [],
         prefs: [],
         greeting: `Hi! I'm your support agent. What can I help you with today?`,

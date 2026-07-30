@@ -33,6 +33,7 @@ __pycache__/
 # misc
 .DS_Store
 img.svg
+csa_agent_workflow.svg
 *.pem
 
 # debug

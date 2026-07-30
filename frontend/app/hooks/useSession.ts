@@ -29,7 +29,7 @@ export function useSession(
         iconCls: 'none',
         specialist: 'Triage',
         reply: u.greeting,
-        trace: [{ k: 'thought', l: 'Session started — memory loaded' }],
+        trace: [{ step: 'thought', detail: 'Session started — memory loaded' }],
         addIssue: false,
         openPlus: false,
       },

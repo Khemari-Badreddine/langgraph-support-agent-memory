@@ -1,4 +1,35 @@
-import { User, AgentRoute } from './types';
+import { User, AgentRoute, TraceStep } from './types';
+
+export const API_BASE_URL = 'http://localhost:8000';
+
+export function backendTraceToTraceLine(trace: TraceStep[]) {
+  return trace;
+}
+
+const INTENT_MAP: Record<string, { cls: string; icon: string; iconCls: string }> = {
+  billing: { cls: 'billing', icon: '$', iconCls: 'billing' },
+  tech:    { cls: 'tech',   icon: '⚙', iconCls: 'tech' },
+  order:   { cls: 'order',  icon: '📦',iconCls: 'order' },
+};
+
+export function resultToRoute(result: {
+  id: string;
+  text: string;
+  intent: string;
+  specialist: string;
+  trace: TraceStep[];
+  memories_updated: boolean;
+}): AgentRoute {
+  const mapped = INTENT_MAP[result.intent] || { cls: 'triageOnly', icon: '⬡', iconCls: 'none' };
+  return {
+    ...mapped,
+    specialist: result.specialist,
+    reply: result.text,
+    trace: backendTraceToTraceLine(result.trace),
+    addIssue: result.memories_updated,
+    openPlus: result.memories_updated,
+  };
+}
 
 export const USERS: User[] = [
   {
@@ -9,15 +40,9 @@ export const USERS: User[] = [
     tagLabel: 'Returning',
     color: 'linear-gradient(135deg,#FF6B4A,#FF9B7A)',
     sessions: 4,
-    openIssues: 1,
-    issues: [
-      { date: 'Apr 20', badge: 'res', text: 'Invoice <strong>#INV-123</strong> wrong amount' },
-      { date: 'Apr 22', badge: 'res', text: '<strong>Login timeout</strong> — pw reset' },
-    ],
-    prefs: [
-      { text: 'Contact via <strong>Email</strong>' },
-      { text: 'Language: <strong>English</strong>' },
-    ],
+    openIssues: 0,
+    issues: [],
+    prefs: [],
     greeting: "Hey Sarah 👋 Welcome back! I have your full history here. What can I help you with today?",
   },
   {
@@ -61,11 +86,11 @@ export const DB: Record<string, AgentRoute> = {
     iconCls: 'billing',
     reply: "I can see you had a billing issue before. I'm pulling up your recent transactions now — I'll have this resolved immediately.",
     trace: [
-      { k: 'thought', l: 'Intent classified as billing_dispute (conf: 0.94)' },
-      { k: 'tool', l: 'lookup_invoices(user_id)' },
-      { k: 'result', l: 'Found duplicate charge — possible billing error' },
-      { k: 'memory', l: 'Stored: "Invoice dispute opened today"' },
-      { k: 'action', l: 'Suggested refund + flagged for review' },
+      { step: 'thought', detail: 'Intent classified as billing_dispute (conf: 0.94)' },
+      { step: 'tool', detail: 'lookup_invoices(user_id)' },
+      { step: 'result', detail: 'Found duplicate charge — possible billing error' },
+      { step: 'memory', detail: 'Stored: "Invoice dispute opened today"' },
+      { step: 'action', detail: 'Suggested refund + flagged for review' },
     ],
     live: 'New issue: Invoice dispute opened',
     live2: 'Sentiment updated → Frustrated',
@@ -80,11 +105,11 @@ export const DB: Record<string, AgentRoute> = {
     iconCls: 'tech',
     reply: "I can see your tech history. Since this appears to be recurring, I'm escalating immediately and flagging this as a persistent auth issue.",
     trace: [
-      { k: 'thought', l: 'Intent classified as auth_failure / recurring (conf: 0.91)' },
-      { k: 'tool', l: 'search_memory(user_id, "login")' },
-      { k: 'result', l: 'Previous login issue found in memory' },
-      { k: 'memory', l: 'Updated: "Login issue marked recurring"' },
-      { k: 'action', l: 'Escalated to Tier-2 tech team' },
+      { step: 'thought', detail: 'Intent classified as auth_failure / recurring (conf: 0.91)' },
+      { step: 'tool', detail: 'search_memory(user_id, "login")' },
+      { step: 'result', detail: 'Previous login issue found in memory' },
+      { step: 'memory', detail: 'Updated: "Login issue marked recurring"' },
+      { step: 'action', detail: 'Escalated to Tier-2 tech team' },
     ],
     live: 'Login issue flagged as recurring',
     live2: 'Ticket escalated to Tier-2',
@@ -99,11 +124,11 @@ export const DB: Record<string, AgentRoute> = {
     iconCls: 'order',
     reply: "Let me check on that order. It shipped recently via Express and is currently in transit — estimated delivery by end of day.",
     trace: [
-      { k: 'thought', l: 'Intent classified as order_tracking (conf: 0.97)' },
-      { k: 'tool', l: 'fetch_order_status(order_id)' },
-      { k: 'result', l: 'Status: IN_TRANSIT · Carrier: FedEx · ETA: today' },
-      { k: 'memory', l: 'Stored: "Tracking inquiry logged"' },
-      { k: 'action', l: 'Returned live ETA to customer' },
+      { step: 'thought', detail: 'Intent classified as order_tracking (conf: 0.97)' },
+      { step: 'tool', detail: 'fetch_order_status(order_id)' },
+      { step: 'result', detail: 'Status: IN_TRANSIT · Carrier: FedEx · ETA: today' },
+      { step: 'memory', detail: 'Stored: "Tracking inquiry logged"' },
+      { step: 'action', detail: 'Returned live ETA to customer' },
     ],
     live: 'Tracking query logged',
     live2: null,
@@ -117,9 +142,9 @@ export const DB: Record<string, AgentRoute> = {
     iconCls: 'none',
     reply: "Got it. I have your full history here and I'm ready to help. Could you share a few more details so I can route this to the right specialist?",
     trace: [
-      { k: 'thought', l: 'Intent unclear — requesting clarification' },
-      { k: 'memory', l: 'Searched memory — no matching prior issue' },
-      { k: 'action', l: 'Returning to customer for more detail' },
+      { step: 'thought', detail: 'Intent unclear — requesting clarification' },
+      { step: 'memory', detail: 'Searched memory — no matching prior issue' },
+      { step: 'action', detail: 'Returning to customer for more detail' },
     ],
     live: null,
     live2: null,
@@ -129,10 +154,10 @@ export const DB: Record<string, AgentRoute> = {
 };
 
 export function matchIntent(t: string): AgentRoute {
-  const l = t.toLowerCase();
-  for (const [k, r] of Object.entries(DB)) {
-    if (k === 'fallback') continue;
-    if (r.kw && r.kw.some(w => l.includes(w))) return r;
+  const detail = t.toLowerCase();
+  for (const [step, r] of Object.entries(DB)) {
+    if (step === 'fallback') continue;
+    if (r.kw && r.kw.some(w => detail.includes(w))) return r;
   }
   return DB.fallback;
 }

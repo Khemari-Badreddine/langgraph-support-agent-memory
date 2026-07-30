@@ -10,7 +10,6 @@ class AgentRequest(BaseModel):
 class TraceStep(BaseModel):
     step: str               # triage | billing | tech | order | gseneral | memory
     detail: str
-    memories_updated: bool = False
 
 
 class AgentResult(BaseModel):

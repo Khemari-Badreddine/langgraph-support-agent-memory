@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './MemoryPanel.module.css';
-import { User } from '../types';
+import { User, Issue } from '../types';
 import { Toast } from './Toast';
 
 // Props received from the parent component
@@ -10,9 +10,10 @@ interface MemoryPanelProps {
   sessionCount: number;
   live1: string | null;
   live2: string | null;
-  addedIssues: { text: string; date: string; flash: boolean; id: number }[];
   openPlus: number;
   dynMood: { mood: string; cls: string } | null;
+  backendIssues: Issue[];
+  onClearMemory: () => void;
 }
 
 export function MemoryPanel({
@@ -21,9 +22,10 @@ export function MemoryPanel({
   sessionCount,
   live1,
   live2,
-  addedIssues,
   openPlus,
-  dynMood
+  dynMood,
+  backendIssues,
+  onClearMemory
 }: MemoryPanelProps) {
 
   // If the mood changed during the conversation, display it.
@@ -36,6 +38,7 @@ export function MemoryPanel({
       {/* Panel Header */}
       <div className={styles.memHead}>
         <div className={styles.panelLabel}>Memory</div>
+        <button className={styles.clearBtn} onClick={onClearMemory} title="Clear all stored memories">Clear</button>
       </div>
 
       {/* Live memory updates (temporary toast notifications) */}
@@ -55,8 +58,8 @@ export function MemoryPanel({
           Issues
         </div>
 
-        {/* If there are no existing or newly-added issues */}
-        {currentUser.issues.length === 0 && addedIssues.length === 0 ? (
+        {/* If there are no existing or backend issues */}
+        {currentUser.issues.length === 0 && backendIssues.length === 0 ? (
           <div
             style={{
               fontSize: '10.5px',
@@ -68,6 +71,18 @@ export function MemoryPanel({
           </div>
         ) : (
           <>
+            {/* Backend-returned issues */}
+            {backendIssues.map((i, idx) => (
+              <div key={`be-${idx}`} className={styles.mcard}>
+                <div className={styles.mcardTop}>
+                  <span className={styles.mcardDate}>{i.date}</span>
+                  <span className={`${styles.mbadge} ${i.badge === 'res' ? styles.mbadgeRes : styles.mbadgeOpen}`}>
+                    {i.badge === 'res' ? 'resolved' : 'open'}
+                  </span>
+                </div>
+                <div className={styles.mcardTxt} dangerouslySetInnerHTML={{ __html: i.text }} />
+              </div>
+            ))}
             {/* Existing issues already stored for this customer */}
             {currentUser.issues.map((i, idx) => (
               <div key={idx} className={styles.mcard}>
@@ -94,29 +109,6 @@ export function MemoryPanel({
                   className={styles.mcardTxt}
                   dangerouslySetInnerHTML={{ __html: i.text }}
                 />
-              </div>
-            ))}
-
-            {/* Issues created during the current chat session */}
-            {addedIssues.map(i => (
-              <div
-                key={i.id}
-                className={`${styles.mcard} ${i.flash ? styles.mcardFlash : ''
-                  }`}
-              >
-                <div className={styles.mcardTop}>
-                  <span className={styles.mcardDate}>
-                    {i.date}
-                  </span>
-
-                  <span className={`${styles.mbadge} ${styles.mbadgeNewb}`}>
-                    new
-                  </span>
-                </div>
-
-                <div className={styles.mcardTxt}>
-                  {i.text}
-                </div>
               </div>
             ))}
           </>

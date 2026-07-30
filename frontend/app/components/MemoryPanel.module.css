@@ -1,5 +1,7 @@
 .mem { width: 200px; background: var(--s1); display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; scrollbar-width: thin; scrollbar-color: var(--s4) transparent; }
-.memHead { padding: 12px 13px 8px; border-bottom: 1px solid var(--b); }
+.memHead { padding: 12px 13px 8px; border-bottom: 1px solid var(--b); display: flex; align-items: center; justify-content: space-between; }
+.clearBtn { font-size: 9px; color: var(--coral); background: none; border: 1px solid var(--b); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.clearBtn:hover { background: var(--s3); }
 .liveSec { padding: 9px 13px; border-bottom: 1px solid var(--b); }
 .liveTitle { font-size: 9px; font-weight: 700; letter-spacing: .9px; text-transform: uppercase; color: var(--teal); margin-bottom: 7px; display: flex; align-items: center; gap: 5px; }
 .liveDot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); animation: pdot 1.5s infinite; }

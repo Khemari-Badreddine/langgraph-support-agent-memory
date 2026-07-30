@@ -27,8 +27,8 @@ export type User = {
 
 // One reasoning/trace step produced by an agent
 export type TraceLine = {
-  k: string;   // Trace type (thought, tool, action...)
-  l: string;   // Trace description
+  step: string;   // Trace type (thought, tool, action...)
+  detail: string;   // Trace description
 };
 
 // Output returned by the intent matcher/specialist
@@ -57,4 +57,11 @@ export type Message = {
   text: string;                  // Message content
   time: string;                  // Timestamp
   agentInfo?: AgentRoute;        // Extra metadata for agent messages
+};
+
+// Backend trace step (matches AgentResult.trace schema)
+export type TraceStep = {
+  step: string;
+  detail: string;
+  memories_updated?: boolean;
 };

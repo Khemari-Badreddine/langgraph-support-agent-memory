@@ -14,9 +14,6 @@ import { useSession } from './hooks/useSession';
 
 export function SupportAgentApp() {
   const flow = useFlow();
-  const memory = useMemory();
-  const chat = useChat(flow, memory);
-
   const session = useSession(
     () => {
       flow.resetFlow();
@@ -27,6 +24,8 @@ export function SupportAgentApp() {
       chat.setMessages([greeting]);
     },
   );
+  const memory = useMemory(session.currentUser?.id ?? null);
+  const chat = useChat(session.currentUser?.id ?? null, session.sessionId, flow, memory);
 
   const sendMessage = (text: string = chat.inputValue) => {
     if (!session.currentUser) return;
@@ -69,9 +68,10 @@ export function SupportAgentApp() {
           sessionCount={session.sessionCount}
           live1={memory.live1}
           live2={memory.live2}
-          addedIssues={memory.addedIssues}
           openPlus={memory.openPlus}
           dynMood={memory.dynMood}
+          backendIssues={memory.backendIssues}
+          onClearMemory={memory.clearMemory}
         />
       </div>
     </div>

@@ -111,9 +111,9 @@ export function ChatPanel({
                     <div className={`${styles.traceBox} ${openTraces[m.id] ? styles.traceBoxOpen : ''}`}>
                       {m.agentInfo.trace.map((l, idx) => (
                         <div key={idx} className={styles.traceLine}>
-                          <span className={styles.traceIcon}>{traceIcons[l.k] || '·'}</span>
-                          <span className={`${styles.traceKey} ${getTraceKeyClass(l.k)}`}>[{l.k}]</span>&nbsp;
-                          <span>{l.l}</span>
+                          <span className={styles.traceIcon}>{traceIcons[l.step] || '·'}</span>
+                          <span className={`${styles.traceKey} ${getTraceKeyClass(l.step)}`}>[{l.step}]</span>&nbsp;
+                          <span>{l.detail}</span>
                         </div>
                       ))}
                     </div>
