@@ -21,18 +21,19 @@ from app.prompts import (
 from app.store import get_store
 
 
-
 def make_issue_id(text: str) -> str:
     return hashlib.md5(text.lower().strip().encode()).hexdigest()[:8]
 
 
 async def memory_node(state: AgentState) -> AgentState:
-    llm   = make_llm()
+    llm = make_llm()
     store = get_store()
     trace = state.get("trace", [])
 
-    last_user_msg  = next(m for m in reversed(state["messages"]) if m["role"] == "user")
-    last_agent_msg = next(m for m in reversed(state["messages"]) if m["role"] == "assistant")
+    last_user_msg = next(m for m in reversed(state["messages"]) if m["role"] == "user")
+    last_agent_msg = next(
+        m for m in reversed(state["messages"]) if m["role"] == "assistant"
+    )
 
     # Fetch existing open issues so the LLM can avoid duplicates
     all_stored = await store.asearch(("memories", state["user_id"]))
@@ -42,16 +43,21 @@ async def memory_node(state: AgentState) -> AgentState:
         if item.value.get("badge") == "open"
     ]
 
-    extraction = await llm.ainvoke([
-        {"role": "system", "content": MEMORY_PROMPT},
-        {"role": "user", "content": f"""
+    extraction = await llm.ainvoke(
+        [
+            {"role": "system", "content": MEMORY_PROMPT},
+            {
+                "role": "user",
+                "content": f"""
         Existing open issues for this customer:
         {chr(10).join('- ' + t for t in open_texts) if open_texts else '(none)'}
 
         Customer said: {last_user_msg['content']}
         Agent replied: {last_agent_msg['content']}
-        """},
-    ])
+        """,
+            },
+        ]
+    )
 
     issues = json.loads(extraction.content.strip())
     if not isinstance(issues, list):
@@ -60,16 +66,15 @@ async def memory_node(state: AgentState) -> AgentState:
     stored, updated = 0, 0
 
     for issue in issues:
-        text  = issue.get("text", "").strip()
+        text = issue.get("text", "").strip()
         badge = issue.get("badge", "open")
-        date  = issue.get("date", "Today")
+        date = issue.get("date", "Today")
         if not text:
             continue
 
         if badge == "res":
             open_items = [
-                item for item in all_stored
-                if item.value.get("badge") == "open"
+                item for item in all_stored if item.value.get("badge") == "open"
             ]
             if open_items:
                 open_texts_list = [item.value.get("text", "") for item in open_items]
@@ -78,12 +83,17 @@ async def memory_node(state: AgentState) -> AgentState:
                     f"Which of the following open issues (if any) does this refer to?\n"
                     + "\n".join(f"  [{i}] {t}" for i, t in enumerate(open_texts_list))
                     + "\n\nReturn ONLY the index number (e.g. 0) of the matching issue, "
-                      "or -1 if none match. No explanation, no markdown, just the number."
+                    "or -1 if none match. No explanation, no markdown, just the number."
                 )
-                match_resp = await llm.ainvoke([
-                    {"role": "system", "content": "You match resolved issues to open issues by index."},
-                    {"role": "user", "content": match_prompt},
-                ])
+                match_resp = await llm.ainvoke(
+                    [
+                        {
+                            "role": "system",
+                            "content": "You match resolved issues to open issues by index.",
+                        },
+                        {"role": "user", "content": match_prompt},
+                    ]
+                )
                 try:
                     idx = int(match_resp.content.strip())
                     if 0 <= idx < len(open_items):
@@ -111,15 +121,20 @@ async def memory_node(state: AgentState) -> AgentState:
         )
         stored += 1
 
+    # Updating Trace
     if stored or updated:
         parts = []
-        if stored:  parts.append(f"{stored} stored")
-        if updated: parts.append(f"{updated} resolved")
-        trace.append({
-            "step":             "memory",
-            "detail":           f"Memory: {', '.join(parts)}",
-            "memories_updated": True,
-        })
+        if stored:
+            parts.append(f"{stored} stored")
+        if updated:
+            parts.append(f"{updated} resolved")
+        trace.append(
+            {
+                "step": "memory",
+                "detail": f"Memory: {', '.join(parts)}",
+                "memories_updated": True,
+            }
+        )
 
     return {**state, "trace": trace}
 
