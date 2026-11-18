@@ -1,53 +1,32 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-/customer_support_agent_v3.html
-
-# backend
-/backend/.venv/
-/backend/app/scripts/
+# Python
+venv/
+.venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
 
-# next.js
-/.next/
-/frontend/.next/
-/frontend/node_modules/
-/out/
+# DeepEval run cache
+.deepeval/
 
-# production
-/build
-
-# misc
-.DS_Store
-img.svg
-csa_agent_workflow.svg
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
+# Env (keep the template)
 .env*
+!.env.example
 
-# vercel
-.vercel
+# Frontend (rest lives in frontend/.gitignore)
+node_modules/
+.next/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Local-only scratch
+/customer_support_agent_v3.html
+/img.svg
+/backend/app/scripts/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.pem
