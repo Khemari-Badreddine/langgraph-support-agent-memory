@@ -9,7 +9,7 @@ from langgraph.graph import END, StateGraph
 from app.services.state import AgentState
 from app.services.helper import make_llm, _run_specialist_agent
 
-from app.prompts import (
+from app.services.prompts import (
     BILLING_PROMPT,
     GENERAL_PROMPT,
     ORDER_PROMPT,
