@@ -8,8 +8,9 @@ class AgentRequest(BaseModel):
 
 
 class TraceStep(BaseModel):
-    step: str               # triage | billing | tech | order | gseneral | memory
+    step: str               # triage | billing | tech | order | general | memory
     detail: str
+    memories_updated: bool = False
 
 
 class AgentResult(BaseModel):
