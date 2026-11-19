@@ -37,7 +37,7 @@ Built with **LangGraph** (`StateGraph`):
 |-----------|------|
 | Backend   | Python, FastAPI, LangGraph + LangChain, asyncpg/psycopg |
 | LLM       | Any model via **OpenRouter** (`CHAT_MODEL`, e.g. `openai/gpt-4o-mini`) |
-| Database  | **Postgres** (e.g. Supabase) — conversation history + LangGraph `AsyncPostgresStore` vector store (OpenAI `text-embedding-3-small`) |
+| Database  | **Postgres 16 + pgvector**, run locally in Docker — conversation history + LangGraph `AsyncPostgresStore` vector store (OpenAI `text-embedding-3-small`) |
 | Frontend  | Next.js 16 (App Router), React 19, Tailwind CSS 4, TypeScript |
 
 > ⚠️ The frontend uses Next.js 16 — its APIs/conventions differ from standard Next.js. Before changing frontend code, read the bundled docs in `frontend/node_modules/next/dist/docs/` (see `frontend/AGENTS.md`).
@@ -54,7 +54,7 @@ Built with **LangGraph** (`StateGraph`):
 │   │   ├── schemas.py           # request/response Pydantic models
 │   │   ├── store.py             # AsyncPostgresStore (vector memory)
 │   │   ├── routers/             # /chat, /memory, /session endpoints
-│   │   ├── db/                  # connection pool + migrations (sessions table)
+│   │   ├── db/                  # connection pool + migrations.py (schema + sessions/messages queries)
 │   │   └── services/
 │   │       ├── graph.py         # LangGraph nodes + wiring (the multi-agent graph)
 │   │       ├── state.py         # AgentState TypedDict
@@ -74,12 +74,16 @@ Built with **LangGraph** (`StateGraph`):
 
 1. **Python 3.11+**
 2. **Node.js 20+**
-3. **Postgres** — any reachable instance (Supabase works). The vector store tables are created automatically by LangGraph on startup.
+3. **Docker** — runs the local Postgres database (see Setup step 1). The database needs the **pgvector** extension, which the plain `postgres` image doesn't have, so use the `pgvector/pgvector` image. Any other pgvector-enabled Postgres works too — just point `DATABASE_URL` at it. The vector store tables are created automatically by LangGraph on startup.
 4. **OpenRouter API key** — for chat + embeddings.
 
 ## Quick start (already set up)
 
-If `backend/venv`, `backend/.env` and `frontend/node_modules` already exist, you just need two terminals:
+If `backend/venv`, `backend/.env`, `frontend/node_modules` and the `csa-postgres` container already exist, start the database, then use two terminals:
+
+```bash
+docker start csa-postgres
+```
 
 ```bash
 # Terminal 1 — backend (http://localhost:8000)
@@ -98,7 +102,19 @@ Then open **http://localhost:3000**. API docs (Swagger) are at **http://localhos
 
 ## Setup (first time)
 
-### 1. Configure the backend
+### 1. Start Postgres (Docker)
+
+```bash
+docker run -d --name csa-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  -v csa-pgdata:/var/lib/postgresql/data \
+  pgvector/pgvector:pg16
+```
+
+The `csa-pgdata` volume keeps your data when the container is stopped or removed. Later, `docker start csa-postgres` / `docker stop csa-postgres` is all you need.
+
+### 2. Configure the backend
 
 Create `backend/.env` (it is gitignored — never commit it):
 
@@ -107,7 +123,7 @@ OPENROUTER_API_KEY=sk-or-v1-...
 CHAT_MODEL=openai/gpt-4o-mini
 CHAT_TEMPERATURE=0.7
 CORS_ORIGINS=http://localhost:3000
-DATABASE_URL=postgresql://user:pass@host:5432/postgres
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
 ```
 
 | Variable | Description |
@@ -116,9 +132,9 @@ DATABASE_URL=postgresql://user:pass@host:5432/postgres
 | `CHAT_MODEL` | Any OpenRouter model ID |
 | `CHAT_TEMPERATURE` | Sampling temperature (default `0.7`) |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default `http://localhost:3000`) |
-| `DATABASE_URL` | Postgres connection string |
+| `DATABASE_URL` | Postgres connection string (the value above matches the Docker container from step 1) |
 
-### 2. Run the backend (port 8000)
+### 3. Run the backend (port 8000)
 
 ```bash
 cd backend
@@ -134,7 +150,7 @@ curl http://localhost:8000/health
 # {"ok": true, "db": "connected", "version": "0.3.0"}
 ```
 
-### 3. Run the frontend (port 3000)
+### 4. Run the frontend (port 3000)
 
 ```bash
 cd frontend
@@ -199,7 +215,8 @@ deepeval test run tests/test_conversations.py -v -s   # multi-turn tests (run se
 | Symptom | Fix |
 |---------|-----|
 | `RuntimeError: OPENROUTER_API_KEY not set` | `backend/.env` is missing, or you started uvicorn from outside `backend/` |
-| Backend hangs/fails on startup | `DATABASE_URL` is unreachable (e.g. paused Supabase project) — startup runs migrations and needs the DB |
+| Backend hangs/fails on startup (`Connect call failed ... 5432`) | The database isn't running: `docker start csa-postgres` (check with `docker ps`). Startup runs migrations and needs the DB |
+| `extension "vector" is not available` | The Postgres image has no pgvector — use `pgvector/pgvector:pg16`, not `postgres` |
 | `Address already in use` | Something is already on the port: `lsof -ti :8000 \| xargs kill` (or `:3000`) |
 | Frontend shows network/CORS errors | Backend isn't running, or `CORS_ORIGINS` doesn't include `http://localhost:3000` |
 | Frontend loops on `FATAL: An unexpected Turbopack error` / panic log says `Next.js package not found` | Stale build cache (usually after moving the project folder): `rm -rf frontend/.next` and restart `npm run dev` |
