@@ -14,6 +14,6 @@ async def get_session(session_id: str):
 
 @router.delete("/{session_id}")
 async def clear_session(session_id: str):
-    """Delete all messages for a session."""
+    """Delete a session and all its messages."""
     count = await delete_session(session_id)
     return {"cleared": count, "session_id": session_id}

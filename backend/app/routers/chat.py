@@ -22,13 +22,18 @@ async def respond(payload: AgentRequest):
     history = await load_session(payload.session_id)
     history.append({"role": "user", "content": payload.text})
 
-    # 2. Persist user message immediately
-    await save_message(
-        session_id=payload.session_id,
-        user_id=payload.user_id,
-        role="user",
-        content=payload.text,
-    )
+    # 2. Persist user message immediately (also creates the session row)
+    try:
+        await save_message(
+            session_id=payload.session_id,
+            user_id=payload.user_id,
+            role="user",
+            content=payload.text,
+        )
+    except PermissionError:
+        raise HTTPException(
+            status_code=403, detail="Session belongs to a different user."
+        )
 
     # 3. Run the multi-agent graph
     try:
