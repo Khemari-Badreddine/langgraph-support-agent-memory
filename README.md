@@ -4,7 +4,7 @@ A LangGraph customer support system that **remembers every customer's problems**
 
 ## Demo
 
-
+https://github.com/user-attachments/assets/d7d7d499-833c-4b10-a52d-5286c27daf4b
 
 ## Architecture
 
