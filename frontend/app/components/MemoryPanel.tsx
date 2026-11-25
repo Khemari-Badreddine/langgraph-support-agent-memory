@@ -22,7 +22,6 @@ export function MemoryPanel({
   sessionCount,
   live1,
   live2,
-  openPlus,
   dynMood,
   backendIssues,
   onClearMemory
@@ -169,11 +168,11 @@ export function MemoryPanel({
           </span>
         </div>
 
-        {/* Existing + newly added issues */}
+        {/* Issues stored in the backend that are still unresolved */}
         <div className={styles.srow}>
           <span className={styles.slabel}>Open issues</span>
           <span className={styles.sval}>
-            {currentUser.openIssues + openPlus}
+            {backendIssues.filter(issue => issue.badge === 'open').length}
           </span>
         </div>
 
