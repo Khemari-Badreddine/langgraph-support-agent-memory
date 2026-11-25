@@ -1,6 +1,16 @@
 # Stateful Multi-Agent Customer Support
 
-A LangGraph customer support system that **remembers every customer's problems**. A triage agent routes each message to a specialist (billing, tech, order or general). A memory node then keeps a per-customer list of issues: it saves new ones, marks fixed ones as resolved, and never saves the same problem twice, even when the customer words it differently. Memory survives across conversations, so the agent never asks a returning customer to repeat themselves.
+=======================
+
+honestly this was a fun project that took a while to finish but taught me a lot, but i built this to try out different ways for an agent to manage memory, and to trace each step of the graph as it runs. most of the work went into the memory node: early versions saved the same issue twice when a customer reworded it, and getting dedupe and resolution right took a few rewrites and, in the end, a stronger model just for that node.
+
+=======================
+
+The complete explanation :)
+
+A LangGraph customer support app with per-customer issue memory. A triage agent routes each message to a specialist (billing, tech, order or general). A memory node then keeps a per-customer list of issues: it saves new ones, marks fixed ones as resolved, and never saves the same problem twice, even when the customer words it differently. Memory survives across conversations, so a returning customer doesn't have to explain the problem again.
+
+
 
 ## Demo
 
@@ -10,7 +20,7 @@ https://github.com/user-attachments/assets/d7d7d499-833c-4b10-a52d-5286c27daf4b
 
 ![Agent workflow](csa_agent_workflow.svg)
 
-## What makes it interesting
+## Features
 
 - **Issue memory, not chat memory.** Instead of storing raw messages, the memory node keeps a short list of *problems* per customer, each one `open` or `resolved`.
 - **No duplicates.** "I was charged twice on INV-2041" and "INV-2041 still shows two charges" are recognized as the same issue.
@@ -214,11 +224,28 @@ The first command runs the single-turn tests, and the second runs the multi-turn
 - `test_memory_modification.py` and `test_memory_retrieval.py` use an in-memory store, so they don't need Postgres.
 - `test_whole_agent.py` and `test_conversations.py` use the real Postgres from `DATABASE_URL`.
 
+### Results
+
+3 runs of the suite with `CHAT_MODEL=openai/gpt-4o-mini` and `MEMORY_MODEL=openai/gpt-4o`:
+
+| Area | Tests | Passed |
+|------|-------|--------|
+| Create issue | `test_open_issue_stored`, `test_memory_content_geval` | 6/6 |
+| Dedupe | `test_no_duplicate_issue` | 3/3 |
+| Resolve | `test_resolved_issue_updated`, `test_multi_turn_memory_recall` | 6/6 |
+| Cross-session | none yet | not tested |
+| Retrieval | 4 tests in `test_memory_retrieval.py` | 12/12 |
+| Triage + replies | 6 tests in `test_whole_agent.py` | 16/18 |
+
+The 2 failures were the same case: the login message was routed to Tech correctly, but the judge scored the reply below threshold (0.3 and 0.5 vs 0.6) because it had no troubleshooting steps.
+
 ## Limitations
 
 - **No auth.** Any client can read or clear any customer's memory by `user_id`. That's fine for a local demo, not for production.
 - The specialists don't call real billing, order or account systems; they reply from their prompt and the customer's memory.
 - `frontend/app/config.ts` hardcodes `API_BASE_URL = http://localhost:8000`. Change it if you move the backend.
+
+**What I'd do next:** give the specialists real tool calls to a billing/order API, and add auth so each customer only sees their own data.
 
 ## Troubleshooting
 
