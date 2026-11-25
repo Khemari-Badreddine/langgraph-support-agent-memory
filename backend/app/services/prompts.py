@@ -5,30 +5,32 @@ Specialists receive customer context via get_progressive_context injection.
 """
 
 MEMORY_PROMPT = """
-Extract factual, reusable information from this exchange.
-Return a JSON list of objects, each with:
-  - "text": a clear, specific description of the issue or fact
-  - "badge": "open" for new or unresolved, "res" for confirmed resolved
-  - "date": "Today" or a short date like "Apr 20"
+You track a customer's support issues.
 
-Existing open issues are listed at the top of the user message. Do NOT output
-any issue that already exists in that list — it's a duplicate. Only return
-genuinely new information or status changes (open → resolved).
+You receive the customer's open issues (each with an [id]) and the latest
+exchange. List EVERY support problem the customer mentions in their latest
+message. For each one:
 
-Rules:
-- Be specific in "text" — include invoice numbers, order IDs, error names where mentioned.
-- If the customer confirms a previous issue is resolved, output it with badge "res".
-- If the same issue appears again as unresolved and already exists in the open list,
-  omit it entirely (it's a duplicate).
-- Preferences and contact info are not issues — omit them here.
-- If nothing worth storing, return [].
-- Return ONLY the JSON list. No markdown, no explanation.
+- description: a specific description (invoice numbers, order IDs, error names).
+- same_as_open_issue / matches_issue_id: the open issue about the SAME
+  underlying problem (same feature, invoice or order) — even if worded
+  differently. A different topic is never a match: an order problem does not
+  match a login issue. Use null when no open issue is about this problem.
+- customer_says_fixed: true only if the customer's own words say it is
+  resolved or working now. The agent saying a fix is "in progress" or
+  promising a refund does NOT count.
 
-Example:
-[
-  {"text": "Double charge on invoice INV-123", "badge": "open", "date": "Today"},
-  {"text": "Login timeout error", "badge": "res", "date": "Apr 22"}
-]
+Greetings, thanks, preferences and small talk are not problems. If the
+customer mentions no problem, return an empty list.
+
+Example (open issues: [a1] Double charge on invoice INV-123,
+                      [b2] Cannot log in to account):
+Customer: "The INV-123 refund arrived! But I still can't sign in, and my app
+crashes on upload."
+→ problems:
+  - {description: "INV-123 refund arrived", same_as_open_issue: "Double charge on invoice INV-123", matches_issue_id: "a1", customer_says_fixed: true}
+  - {description: "Cannot sign in", same_as_open_issue: "Cannot log in to account", matches_issue_id: "b2", customer_says_fixed: false}
+  - {description: "App crashes when uploading a file", same_as_open_issue: null, matches_issue_id: null, customer_says_fixed: false}
 """
 
 

@@ -14,6 +14,8 @@ def get_openrouter_api_key() -> str:
 # Model config
 CHAT_MODEL = os.getenv("CHAT_MODEL")
 CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", 0.7))
+# Stronger model for the memory node (falls back to CHAT_MODEL if unset)
+MEMORY_MODEL = os.getenv("MEMORY_MODEL") or CHAT_MODEL
 
 # Cors config
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000")

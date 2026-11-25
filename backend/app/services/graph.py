@@ -1,9 +1,8 @@
+from datetime import datetime
 from typing import Literal
 from uuid import uuid4
-import json
-import hashlib
-import hashlib
 
+from pydantic import BaseModel, Field
 from langgraph.graph import END, StateGraph
 
 from app.services.state import AgentState
@@ -19,15 +18,40 @@ from app.services.prompts import (
 )
 
 from app.store import get_store
+from app.config import MEMORY_MODEL
 
 
-def make_issue_id(text: str) -> str:
-    return hashlib.md5(text.lower().strip().encode()).hexdigest()[:8]
+# ── Memory: what the LLM is allowed to return ────────────────────────────────
+class Problem(BaseModel):
+    description: str = Field(
+        description="Specific description: include invoice numbers, order IDs, error names"
+    )
+    same_as_open_issue: str | None = Field(
+        description=(
+            "Copy the text of the open issue that is about the SAME problem "
+            "(same feature/invoice/order). null if no open issue is about it."
+        )
+    )
+    matches_issue_id: str | None = Field(
+        description="The [id] of that open issue, or null"
+    )
+    customer_says_fixed: bool = Field(
+        description=(
+            "true only if the CUSTOMER's own words say it is resolved or working "
+            "now. The agent promising or starting a fix does NOT count."
+        )
+    )
+
+
+class MemoryExtraction(BaseModel):
+    problems: list[Problem] = Field(
+        description="Every support problem the customer mentions in their latest message"
+    )
 
 
 async def memory_node(state: AgentState) -> AgentState:
-    llm = make_llm()
     store = get_store()
+    namespace = ("memories", state["user_id"])
     trace = state.get("trace", [])
 
     last_user_msg = next(m for m in reversed(state["messages"]) if m["role"] == "user")
@@ -35,99 +59,70 @@ async def memory_node(state: AgentState) -> AgentState:
         m for m in reversed(state["messages"]) if m["role"] == "assistant"
     )
 
-    # Fetch existing open issues so the LLM can avoid duplicates
-    all_stored = await store.asearch(("memories", state["user_id"]))
-    open_texts = [
-        item.value.get("text", "")
-        for item in all_stored
-        if item.value.get("badge") == "open"
-    ]
-
-    extraction = await llm.ainvoke(
-        [
-            {"role": "system", "content": MEMORY_PROMPT},
-            {
-                "role": "user",
-                "content": f"""
-        Existing open issues for this customer:
-        {chr(10).join('- ' + t for t in open_texts) if open_texts else '(none)'}
-
-        Customer said: {last_user_msg['content']}
-        Agent replied: {last_agent_msg['content']}
-        """,
-            },
-        ]
+    # 1. Show the LLM the open issues *with their keys*, so it can point at them
+    stored_items = await store.asearch(namespace, limit=100)
+    open_items = {
+        item.key: item for item in stored_items if item.value.get("badge") == "open"
+    }
+    open_list = "\n".join(
+        f"- [{key}] {item.value.get('text', '')}" for key, item in open_items.items()
     )
 
-    issues = json.loads(extraction.content.strip())
-    if not isinstance(issues, list):
-        issues = []
-
-    stored, updated = 0, 0
-
-    for issue in issues:
-        text = issue.get("text", "").strip()
-        badge = issue.get("badge", "open")
-        date = issue.get("date", "Today")
-        if not text:
-            continue
-
-        if badge == "res":
-            open_items = [
-                item for item in all_stored if item.value.get("badge") == "open"
+    # 2. One structured call: the LLM *classifies* each problem the customer
+    #    mentions; the code below decides what to store
+    llm = make_llm(MEMORY_MODEL)
+    llm.temperature = 0
+    llm = llm.with_structured_output(MemoryExtraction)
+    try:
+        result = await llm.ainvoke(
+            [
+                {"role": "system", "content": MEMORY_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Open issues:\n{open_list or '(none)'}\n\n"
+                        f"Customer said: {last_user_msg['content']}\n"
+                        f"Agent replied: {last_agent_msg['content']}"
+                    ),
+                },
             ]
-            if open_items:
-                open_texts_list = [item.value.get("text", "") for item in open_items]
-                match_prompt = (
-                    f"The customer just confirmed this issue is resolved:\n  {text}\n\n"
-                    f"Which of the following open issues (if any) does this refer to?\n"
-                    + "\n".join(f"  [{i}] {t}" for i, t in enumerate(open_texts_list))
-                    + "\n\nReturn ONLY the index number (e.g. 0) of the matching issue, "
-                    "or -1 if none match. No explanation, no markdown, just the number."
-                )
-                match_resp = await llm.ainvoke(
-                    [
-                        {
-                            "role": "system",
-                            "content": "You match resolved issues to open issues by index.",
-                        },
-                        {"role": "user", "content": match_prompt},
-                    ]
-                )
-                try:
-                    idx = int(match_resp.content.strip())
-                    if 0 <= idx < len(open_items):
-                        target = open_items[idx]
-                        await store.aput(
-                            ("memories", state["user_id"]),
-                            key=target.key,
-                            value={
-                                "date": target.value.get("date", "Today"),
-                                "badge": "res",
-                                "text": target.value.get("text", ""),
-                            },
-                        )
-                        updated += 1
-                except ValueError:
-                    pass
-            continue
-
-        # Open issue: store with deterministic key
-        issue_id = make_issue_id(text)
-        await store.aput(
-            ("memories", state["user_id"]),
-            key=issue_id,
-            value={"date": date, "badge": "open", "text": text},
         )
-        stored += 1
+        problems = result.problems
+    except Exception:
+        problems = []  # memory is best-effort: never break the reply
+
+    # 3. Apply the actions
+    today = datetime.now().strftime("%b %-d")
+    created, resolved = 0, 0
+
+    for problem in problems:
+        match = open_items.get(problem.matches_issue_id or "")
+
+        if problem.customer_says_fixed and match:
+            # Known issue, customer confirmed it's fixed -> resolve it
+            open_items.pop(match.key)  # can't resolve twice
+            await store.aput(namespace, key=match.key, value={**match.value, "badge": "res"})
+            resolved += 1
+
+        elif not problem.customer_says_fixed and not match and problem.description.strip():
+            # New problem -> create it
+            await store.aput(
+                namespace,
+                key=uuid4().hex[:8],
+                value={"date": today, "badge": "open", "text": problem.description.strip()},
+            )
+            created += 1
+
+        # Known issue still broken -> already stored, nothing to do (dedupe)
+        # fixed but no matching open issue -> nothing to resolve
 
     # Updating Trace
-    if stored or updated:
+    if created or resolved:
         parts = []
-        if stored:
-            parts.append(f"{stored} stored")
-        if updated:
-            parts.append(f"{updated} resolved")
+        if created:
+            parts.append(f"{created} stored")
+        if resolved:
+            parts.append(f"{resolved} resolved")
         trace.append(
             {
                 "step": "memory",

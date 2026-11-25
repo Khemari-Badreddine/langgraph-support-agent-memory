@@ -9,9 +9,9 @@ from app.services.state import AgentState
 
 
 # ── LLM (shared across all nodes) ────────────────────────────────────────────
-def make_llm() -> ChatOpenAI:
+def make_llm(model: str | None = None) -> ChatOpenAI:
     return ChatOpenAI(
-        model=CHAT_MODEL,
+        model=model or CHAT_MODEL,
         api_key=get_openrouter_api_key(),
         base_url="https://openrouter.ai/api/v1",
         temperature=float(CHAT_TEMPERATURE),
@@ -36,13 +36,14 @@ async def get_progressive_content(user_id, query) -> str:
         return str(value.get("value", value))
 
     # Layer 1: Most recent Memories
-    all_memories = await store.asearch(namespace,limit=100)
-    recent = [memory_text(m) for m in all_memories[-3:]]
+    all_memories = await store.asearch(namespace, limit=100)
+    recent = [
+        memory_text(m) for m in sorted(all_memories, key=lambda m: m.updated_at)[-3:]
+    ]
 
     # Layer 2: Most relevant Memories
     relevant = [
-        memory_text(m)
-        for m in await store.asearch(namespace, query=query, limit=3)
+        memory_text(m) for m in await store.asearch(namespace, query=query, limit=3)
     ]
 
     # Aggressive Deduplication
@@ -65,7 +66,7 @@ async def _run_specialist_agent(
     context = await get_progressive_content(
         state["user_id"], state["messages"][-1]["content"]
     )
-    
+
     full_prompt = f"{system_prompt}\n\n{context}"
 
     agent = _build_specialist_agent(full_prompt)
