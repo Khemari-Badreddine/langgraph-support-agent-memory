@@ -3,13 +3,13 @@ from app.db.pool import get_pool
 # LangGraph's AsyncPostgresStore manages its own tables via store.setup().
 # We only own this one table for conversation history.
 CREATE_SESSIONS = """
-    CREATE TABLE sessions (
+    CREATE TABLE IF NOT EXISTS sessions (
         session_id  TEXT PRIMARY KEY,
         user_id     TEXT NOT NULL,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     );
 
-    CREATE TABLE messages (
+    CREATE TABLE IF NOT EXISTS messages (
         id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         session_id  TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
         role        TEXT NOT NULL CHECK (role IN ('user','assistant')),
@@ -19,8 +19,8 @@ CREATE_SESSIONS = """
         trace       JSONB,
         created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     );
-    CREATE INDEX ON messages (session_id, id);
-    CREATE INDEX ON sessions (user_id);
+    CREATE INDEX IF NOT EXISTS messages_session_id_id_idx ON messages (session_id, id);
+    CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
 """
 
 
