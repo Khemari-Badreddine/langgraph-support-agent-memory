@@ -1,0 +1,282 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="990" viewBox="0 0 960 990" role="img" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>Customer Support Agent architecture</title>
+  <desc>A customer message hits the FastAPI endpoint, which loads session history and saves the message to Postgres. A triage agent routes it to one of four specialist agents, which receive progressive memory context from the LangGraph store. A memory node then extracts and updates long-term memories, the reply is saved, and the response is returned.</desc>
+
+  <defs>
+    <filter id="shadow" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f172a" flood-opacity="0.07"/>
+    </filter>
+    <marker id="a-gray" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="a-indigo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#6366f1"/>
+    </marker>
+    <marker id="a-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 z" fill="#3b82f6"/>
+    </marker>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      /* marching dashes on the conditional routes + context bar */
+      @keyframes march { to { stroke-dashoffset: -18; } }
+      .march { animation: march 1.2s linear infinite; }
+      /* gentle breathing outline on the main nodes */
+      @keyframes breathe { 0%, 100% { stroke-opacity: 1; } 50% { stroke-opacity: 0.4; } }
+      .breathe { animation: breathe 3.5s ease-in-out infinite; }
+      .t  { fill: #0f172a; font-weight: 700; }
+      .s  { fill: #475569; }
+      .m  { fill: #64748b; }
+      .mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+      .lbl { fill: #2563eb; font-size: 10.5px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="990" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="40" y="48" font-size="21" class="t">Customer Support Agent</text>
+  <text x="40" y="70" font-size="12.5" class="m">LangGraph multi-agent graph · FastAPI · PostgreSQL + pgvector</text>
+
+  <!-- Specialist group (drawn first so the routing lines sit on top) -->
+  <rect x="40" y="376" width="580" height="176" rx="16" fill="#fbfdfc" stroke="#d1fae5" stroke-width="1.2"/>
+
+  <!-- ───────────── CONNECTORS ───────────── -->
+
+  <!-- Main flow -->
+  <path id="f-msg" d="M330 138 V166" stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#a-gray)"/>
+  <path id="f-triage" d="M330 240 V276" stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#a-gray)"/>
+
+  <!-- Triage → specialists (conditional: exactly one runs) -->
+  <g class="march" stroke="#6366f1" stroke-width="1.4" fill="none" stroke-dasharray="5 4">
+    <path id="r-billing" d="M330 340 C330 370 114 366 114 392" marker-end="url(#a-indigo)"/>
+    <path id="r-tech" d="M330 340 C330 370 258 366 258 392" marker-end="url(#a-indigo)"/>
+    <path id="r-order" d="M330 340 C330 370 402 366 402 392" marker-end="url(#a-indigo)"/>
+    <path id="r-general" d="M330 340 C330 370 546 366 546 392" marker-end="url(#a-indigo)"/>
+  </g>
+
+  <path id="f-memory" d="M330 552 V584" stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#a-gray)"/>
+  <path id="f-save" d="M330 740 V772" stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#a-gray)"/>
+  <path id="f-resp" d="M330 822 V854" stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#a-gray)"/>
+
+  <!-- API ⇄ conversation tables -->
+  <path id="d-history" d="M532 222 H704" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-start="url(#a-blue)" marker-end="url(#a-blue)"/>
+  <text x="618" y="214" text-anchor="middle" class="lbl">load history · save msg</text>
+
+  <!-- Memory store → context injection -->
+  <path id="d-retrieve" d="M704 508 H624" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-end="url(#a-blue)"/>
+  <text x="662" y="500" text-anchor="middle" class="lbl">retrieve</text>
+
+  <!-- Memory node → memory store -->
+  <path id="d-upsert" d="M622 678 H702" stroke="#3b82f6" stroke-width="1.5" fill="none" marker-end="url(#a-blue)"/>
+  <text x="662" y="670" text-anchor="middle" class="lbl">write</text>
+
+  <!-- Save reply → messages table (routed around the panel) -->
+  <path id="d-savereply" d="M472 799 H936 V304 H904" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-linejoin="round" marker-end="url(#a-blue)"/>
+  <text x="930" y="545" text-anchor="middle" class="lbl" transform="rotate(-90 930 545)">save reply</text>
+
+  <!-- ───────────── ANIMATED FLOW ───────────── -->
+  <g>
+    <circle r="4" fill="#64748b" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.0143;0.0857;1"><mpath href="#f-msg"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.0103;0.0143;0.0857;0.0897;1"/>
+    </circle>
+    <circle r="4" fill="#3b82f6" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;0;0" keyTimes="0;0.0857;0.1571;0.2286;1"><mpath href="#d-history"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.0817;0.0857;0.2286;0.2326;1"/>
+    </circle>
+    <circle r="4" fill="#64748b" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.2286;0.3000;1"><mpath href="#f-triage"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.2246;0.2286;0.3000;0.3040;1"/>
+    </circle>
+    <circle r="4" fill="#6366f1" filter="url(#glow)" opacity="0">
+      <animateMotion dur="28.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.0750;0.1000;1"><mpath href="#r-billing"/></animateMotion>
+      <animate attributeName="opacity" dur="28.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.0710;0.0750;0.1000;0.1040;1"/>
+    </circle>
+    <circle r="4" fill="#6366f1" filter="url(#glow)" opacity="0">
+      <animateMotion dur="28.0s" begin="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.0750;0.1000;1"><mpath href="#r-tech"/></animateMotion>
+      <animate attributeName="opacity" dur="28.0s" begin="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.0710;0.0750;0.1000;0.1040;1"/>
+    </circle>
+    <circle r="4" fill="#6366f1" filter="url(#glow)" opacity="0">
+      <animateMotion dur="28.0s" begin="14.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.0750;0.1000;1"><mpath href="#r-order"/></animateMotion>
+      <animate attributeName="opacity" dur="28.0s" begin="14.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.0710;0.0750;0.1000;0.1040;1"/>
+    </circle>
+    <circle r="4" fill="#6366f1" filter="url(#glow)" opacity="0">
+      <animateMotion dur="28.0s" begin="21.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.0750;0.1000;1"><mpath href="#r-general"/></animateMotion>
+      <animate attributeName="opacity" dur="28.0s" begin="21.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.0710;0.0750;0.1000;0.1040;1"/>
+    </circle>
+    <circle r="4" fill="#3b82f6" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.4000;0.4857;1"><mpath href="#d-retrieve"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.3960;0.4000;0.4857;0.4897;1"/>
+    </circle>
+    <circle r="4" fill="#64748b" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.5286;0.6000;1"><mpath href="#f-memory"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.5246;0.5286;0.6000;0.6040;1"/>
+    </circle>
+    <circle r="4" fill="#f59e0b" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.6143;0.6857;1"><mpath href="#d-upsert"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.6103;0.6143;0.6857;0.6897;1"/>
+    </circle>
+    <circle r="4" fill="#64748b" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.7000;0.7571;1"><mpath href="#f-save"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.6960;0.7000;0.7571;0.7611;1"/>
+    </circle>
+    <circle r="4" fill="#3b82f6" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.7571;0.9000;1"><mpath href="#d-savereply"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.7531;0.7571;0.9000;0.9040;1"/>
+    </circle>
+    <circle r="4.5" fill="#10b981" filter="url(#glow)" opacity="0">
+      <animateMotion dur="7.0s" repeatCount="indefinite" calcMode="linear" keyPoints="0;0;1;1" keyTimes="0;0.7571;0.8286;1"><mpath href="#f-resp"/></animateMotion>
+      <animate attributeName="opacity" dur="7.0s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.7531;0.7571;0.8286;0.8326;1"/>
+    </circle>
+  </g>
+
+  <!-- ───────────── NODES ───────────── -->
+
+  <!-- Customer message -->
+  <g filter="url(#shadow)">
+    <rect x="210" y="96" width="240" height="42" rx="21" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4"/>
+  </g>
+  <text x="330" y="122" text-anchor="middle" font-size="14" class="t">Customer message</text>
+
+  <!-- FastAPI endpoint -->
+  <g filter="url(#shadow)">
+    <rect x="128" y="170" width="404" height="70" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4"/>
+  </g>
+  <text x="330" y="193" text-anchor="middle" font-size="13.5" class="t">FastAPI · <tspan class="mono" font-size="12.5">POST /chat/respond</tspan></text>
+  <text x="330" y="212" text-anchor="middle" font-size="11" class="s">Load session history · save the user message</text>
+  <text x="330" y="229" text-anchor="middle" font-size="11" fill="#dc2626" font-weight="600">403 if the session belongs to another user</text>
+
+  <!-- Triage -->
+  <g filter="url(#shadow)">
+    <rect x="150" y="280" width="360" height="60" rx="14" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" class="breathe"/>
+  </g>
+  <text x="330" y="305" text-anchor="middle" font-size="14" fill="#312e81" font-weight="700">Triage Agent</text>
+  <text x="330" y="324" text-anchor="middle" font-size="11" fill="#4f46e5">One-word LLM intent · exactly one route runs · fallback: general</text>
+
+  <g filter="url(#shadow)">
+    <rect x="50"  y="396" width="128" height="70" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+    <rect x="194" y="396" width="128" height="70" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+    <rect x="338" y="396" width="128" height="70" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+    <rect x="482" y="396" width="128" height="70" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.4"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="114" y="420" font-size="12.5" fill="#064e3b" font-weight="700">Billing</text>
+    <text x="114" y="436" font-size="10.5" fill="#047857">invoices · refunds</text>
+    <text x="114" y="454" font-size="9.5" fill="#6366f1" class="mono">intent: billing</text>
+
+    <text x="258" y="420" font-size="12.5" fill="#064e3b" font-weight="700">Tech Support</text>
+    <text x="258" y="436" font-size="10.5" fill="#047857">login · app errors</text>
+    <text x="258" y="454" font-size="9.5" fill="#6366f1" class="mono">intent: tech</text>
+
+    <text x="402" y="420" font-size="12.5" fill="#064e3b" font-weight="700">Order Tracking</text>
+    <text x="402" y="436" font-size="10.5" fill="#047857">shipping · status</text>
+    <text x="402" y="454" font-size="9.5" fill="#6366f1" class="mono">intent: order</text>
+
+    <text x="546" y="420" font-size="12.5" fill="#064e3b" font-weight="700">General</text>
+    <text x="546" y="436" font-size="10.5" fill="#047857">greetings · unclear</text>
+    <text x="546" y="454" font-size="9.5" fill="#6366f1" class="mono">intent: general</text>
+  </g>
+
+  <!-- Progressive context (input to whichever specialist runs) -->
+  <rect x="50" y="480" width="560" height="56" rx="10" fill="#eef2ff" stroke="#a5b4fc" stroke-width="1.2" stroke-dasharray="4 3" class="march"/>
+  <text x="330" y="502" text-anchor="middle" font-size="12" fill="#312e81" font-weight="700">Progressive context → specialist system prompt</text>
+  <text x="330" y="521" text-anchor="middle" font-size="11" fill="#4f46e5">3 most recent + 3 most relevant memories (deduped) · last 20 messages</text>
+
+  <!-- Memory node -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="588" width="582" height="152" rx="16" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" class="breathe"/>
+  </g>
+  <text x="330" y="612" text-anchor="middle" font-size="14" fill="#78350f" font-weight="700">Memory Node</text>
+  <text x="330" y="628" text-anchor="middle" font-size="10.5" fill="#b45309">runs after every reply · dedupes reworded issues</text>
+
+  <g font-size="11" fill="#78350f">
+    <rect x="62" y="638" width="538" height="26" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+    <text x="76" y="655"><tspan font-weight="700">1</tspan>   Load the customer's open issues <tspan font-weight="700">with their keys</tspan> <tspan class="mono" font-size="10">[a1f3] Double charge INV-2041</tspan></text>
+
+    <rect x="62" y="670" width="538" height="26" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+    <text x="76" y="687"><tspan font-weight="700">2</tspan>   One structured-output call → <tspan class="mono" font-size="10">create {text}</tspan> · <tspan class="mono" font-size="10">resolve {issue_id}</tspan> · fails → skip</text>
+
+    <rect x="62" y="702" width="538" height="26" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+    <text x="76" y="719"><tspan font-weight="700">3</tspan>   <tspan class="mono" font-size="10">create</tspan> → new open issue · <tspan class="mono" font-size="10">resolve</tspan> → that key's badge → <tspan class="mono" font-size="10">res</tspan> · unknown keys ignored</text>
+  </g>
+
+  <!-- Save reply -->
+  <g filter="url(#shadow)">
+    <rect x="188" y="776" width="284" height="46" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4"/>
+  </g>
+  <text x="330" y="796" text-anchor="middle" font-size="13" class="t">Save assistant reply</text>
+  <text x="330" y="812" text-anchor="middle" font-size="10.5" class="s">written to the <tspan class="mono">messages</tspan> table</text>
+
+  <!-- Response -->
+  <g filter="url(#shadow)">
+    <rect x="140" y="858" width="380" height="46" rx="23" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4"/>
+  </g>
+  <text x="330" y="878" text-anchor="middle" font-size="13.5" class="t">Response to frontend</text>
+  <text x="330" y="894" text-anchor="middle" font-size="9.5" class="s mono">reply · intent · specialist · trace · memories_updated</text>
+
+  <!-- ───────────── POSTGRES PANEL ───────────── -->
+  <g filter="url(#shadow)">
+    <rect x="704" y="150" width="200" height="586" rx="16" fill="#f8fbff" stroke="#3b82f6" stroke-width="1.5" class="breathe"/>
+  </g>
+  <text x="804" y="176" text-anchor="middle" font-size="14" fill="#1e3a8a" font-weight="700">PostgreSQL</text>
+  <text x="804" y="192" text-anchor="middle" font-size="10" fill="#3b82f6">Docker · pgvector</text>
+
+  <!-- Conversations -->
+  <rect x="716" y="204" width="176" height="136" rx="10" fill="#ffffff" stroke="#bfdbfe"/>
+  <text x="728" y="224" font-size="11.5" fill="#1e3a8a" font-weight="700">Conversations</text>
+
+  <rect x="726" y="234" width="156" height="38" rx="7" fill="#eff6ff"/>
+  <text x="736" y="250" font-size="11" fill="#1e40af" font-weight="700" class="mono">sessions</text>
+  <text x="736" y="264" font-size="9.5" fill="#475569" class="mono">session_id (PK) · user_id</text>
+
+  <rect x="726" y="278" width="156" height="52" rx="7" fill="#eff6ff"/>
+  <text x="736" y="294" font-size="11" fill="#1e40af" font-weight="700" class="mono">messages</text>
+  <text x="736" y="308" font-size="9.5" fill="#475569" class="mono">role, content</text>
+  <text x="736" y="321" font-size="9.5" fill="#475569" class="mono">intent, specialist, trace</text>
+
+  <!-- Long-term memory -->
+  <rect x="716" y="440" width="176" height="282" rx="10" fill="#ffffff" stroke="#bfdbfe"/>
+  <text x="728" y="460" font-size="11.5" fill="#1e3a8a" font-weight="700">Long-term memory</text>
+  <text x="728" y="475" font-size="9.5" fill="#64748b">LangGraph AsyncPostgresStore</text>
+
+  <rect x="726" y="486" width="156" height="54" rx="7" fill="#eff6ff"/>
+  <text x="736" y="502" font-size="11" fill="#1e40af" font-weight="700" class="mono">store</text>
+  <text x="736" y="516" font-size="9.5" fill="#475569" class="mono">ns: (memories, user_id)</text>
+  <text x="736" y="530" font-size="9.5" fill="#475569" class="mono">{text, badge, date}</text>
+
+  <rect x="726" y="546" width="156" height="40" rx="7" fill="#eff6ff"/>
+  <text x="736" y="562" font-size="11" fill="#1e40af" font-weight="700" class="mono">store_vectors</text>
+  <text x="736" y="577" font-size="9.5" fill="#475569" class="mono">text-embedding-3-small</text>
+
+  <g font-size="9.5" fill="#475569">
+    <text x="728" y="610" font-weight="700" fill="#1e3a8a">Retrieval</text>
+    <text x="728" y="626">recent: newest 3 by updated_at</text>
+    <text x="728" y="641">relevant: top-3 vector search</text>
+    <text x="728" y="664" font-weight="700" fill="#1e3a8a">Badges</text>
+    <text x="728" y="680"><tspan class="mono">open</tspan><tspan x="760">unresolved issue</tspan></text>
+    <text x="728" y="695"><tspan class="mono">res</tspan><tspan x="760">customer confirmed fix</tspan></text>
+  </g>
+
+  <!-- ───────────── LEGEND ───────────── -->
+  <line x1="40" y1="930" x2="920" y2="930" stroke="#e2e8f0"/>
+  <g font-size="11" fill="#475569">
+    <rect x="40"  y="948" width="12" height="12" rx="3" fill="#f8fafc" stroke="#94a3b8"/>
+    <text x="58"  y="958">API · I/O</text>
+    <rect x="140" y="948" width="12" height="12" rx="3" fill="#eef2ff" stroke="#6366f1"/>
+    <text x="158" y="958">Routing &amp; context</text>
+    <rect x="290" y="948" width="12" height="12" rx="3" fill="#ecfdf5" stroke="#10b981"/>
+    <text x="308" y="958">Specialist agents</text>
+    <rect x="432" y="948" width="12" height="12" rx="3" fill="#fffbeb" stroke="#f59e0b"/>
+    <text x="450" y="958">Memory node</text>
+    <rect x="552" y="948" width="12" height="12" rx="3" fill="#eff6ff" stroke="#3b82f6"/>
+    <text x="570" y="958">PostgreSQL</text>
+    <line x1="666" y1="954" x2="696" y2="954" stroke="#6366f1" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="704" y="958">conditional route</text>
+    <line x1="810" y1="954" x2="840" y2="954" stroke="#3b82f6" stroke-width="1.5"/>
+    <text x="848" y="958">DB read/write</text>
+  </g>
+</svg>

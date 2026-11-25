@@ -1,46 +1,60 @@
-# Customer Support Agent
+# Stateful Multi-Agent Customer Support
 
-A full-stack demo of a multi-agent LLM customer support system. A triage agent classifies every customer message and routes it to a specialist (billing / tech / order / general), and a memory node stores per-customer long-term memory that is injected into every future reply.
+A LangGraph customer support system that **remembers every customer's problems**. A triage agent routes each message to a specialist (billing, tech, order or general). A memory node then keeps a per-customer list of issues: it saves new ones, marks fixed ones as resolved, and never saves the same problem twice, even when the customer words it differently. Memory survives across conversations, so the agent never asks a returning customer to repeat themselves.
+
+## Demo
+
+
 
 ## Architecture
 
-```
-customer message
-       │
-       ▼
-   ┌──────────┐   intent: billing | tech | order | general
-   │  TRIAGE  │───────────────────────────────┐
-   └──────────┘                               │ conditional edge
-        ┌──────────────┬──────────────┬───────────────┐
-        ▼              ▼              ▼               ▼
-   ┌─────────┐   ┌─────────┐   ┌──────────┐   ┌──────────┐
-   │ BILLING │   │  TECH   │   │  ORDER   │   │ GENERAL  │   ← specialist agents
-   └────┬────┘   └────┬────┘   └────┬─────┘   └────┬─────┘                        
-        └──────────────┴──────┬──────┴───────────────┘
-                              ▼
-                        ┌──────────┐
-                        │  MEMORY  │  extracts new issues / resolutions,
-                        └──────────┘  dedupes, stores per user
-                              │
-                             END
+![Agent workflow](csa_agent_workflow.svg)
+
+## What makes it interesting
+
+- **Issue memory, not chat memory.** Instead of storing raw messages, the memory node keeps a short list of *problems* per customer, each one `open` or `resolved`.
+- **No duplicates.** "I was charged twice on INV-2041" and "INV-2041 still shows two charges" are recognized as the same issue.
+- **Resolve and create in one message.** "The refund came through! But my order ORD-77 still hasn't shipped" resolves the billing issue and opens an order issue in the same turn.
+- **Memory across sessions.** Start a new conversation and the agent still knows about the open issues.
+- **Live trace.** The frontend shows each step: triage, then the specialist, then what memory changed.
+
+## How it works
+
+Built with **LangGraph** (`StateGraph`): `triage → specialist → memory → END`.
+
+1. **Triage.** A cheap one-word LLM call classifies the intent as `billing`, `tech`, `order` or `general`. Anything unexpected falls back to `general`.
+2. **Specialist.** Four agents built with `langchain.create_agent`, each with its own system prompt. Before replying, each one gets **progressive context** in its system prompt: the customer's 3 most recent memories plus the 3 most relevant ones from a vector search, deduplicated.
+3. **Memory.** Runs after every reply, in one structured LLM call followed by plain code:
+   - The LLM sees the customer's open issues **with their ids** (for example `[a1f3] Double charge on INV-2041`), the customer's message and the agent's reply.
+   - For each problem the customer mentions, it fills in a Pydantic schema: a description, `matches_issue_id` (which open issue it is, or `null`), and `customer_says_fixed` (only the customer's own words count; an agent saying "refund in progress" doesn't).
+   - The **code**, not the LLM, then decides what to do:
+
+     | Matches an open issue? | Customer says it's fixed? | Action |
+     |---|---|---|
+     | no | no | **create** a new open issue |
+     | yes | yes | **resolve** that issue |
+     | yes | no | skip, since it's already stored (this is the dedupe) |
+     | no | yes | skip, since there's nothing to resolve |
+
+   The LLM only classifies; it never writes to the store directly, which makes the behavior predictable. The memory node can use a stronger model than the chat agents (`MEMORY_MODEL`), at temperature 0, because matching reworded issues is where a small model slips.
+
+Memories live in LangGraph's `AsyncPostgresStore` (pgvector, OpenAI `text-embedding-3-small`) under the namespace `("memories", user_id)`:
+
+```json
+{ "text": "Double charge on invoice INV-2041", "badge": "open", "date": "Nov 20" }
 ```
 
-Built with **LangGraph** (`StateGraph`):
-
-- **Triage** — a cheap one-word LLM call classifies intent; anything unrecognized falls back to `general`.
-- **Specialists** — four agents built with `langchain.create_agent`, each with its own system prompt. Before replying, each gets **progressive context** injected: the 3 most recent memories + the top 3 vector-search-relevant memories for that user, deduplicated.
-- **Memory** — runs after every reply. An LLM extracts issues as JSON (`text` / `badge: open|res` / `date`), dedupes against existing open issues (deterministic MD5 issue IDs), and resolves open issues when the customer confirms a fix (via a second LLM matching call).
+Conversation history is stored separately in two Postgres tables, `sessions` and `messages`. A session belongs to one user: a request that writes to another user's session gets a `403`.
 
 ## Tech stack
 
 | Layer     | Tech |
 |-----------|------|
-| Backend   | Python, FastAPI, LangGraph + LangChain, asyncpg/psycopg |
-| LLM       | Any model via **OpenRouter** (`CHAT_MODEL`, e.g. `openai/gpt-4o-mini`) |
-| Database  | **Postgres 16 + pgvector**, run locally in Docker — conversation history + LangGraph `AsyncPostgresStore` vector store (OpenAI `text-embedding-3-small`) |
+| Backend   | Python, FastAPI, LangGraph + LangChain, asyncpg |
+| LLM       | Any model via **OpenRouter** (`CHAT_MODEL` for the agents, `MEMORY_MODEL` for memory) |
+| Database  | **Postgres 16 + pgvector** in Docker: conversation history plus the LangGraph vector store |
 | Frontend  | Next.js 16 (App Router), React 19, Tailwind CSS 4, TypeScript |
-
-> ⚠️ The frontend uses Next.js 16 — its APIs/conventions differ from standard Next.js. Before changing frontend code, read the bundled docs in `frontend/node_modules/next/dist/docs/` (see `frontend/AGENTS.md`).
+| Tests     | DeepEval LLM evaluations with pytest |
 
 ## Repository layout
 
@@ -50,59 +64,34 @@ Built with **LangGraph** (`StateGraph`):
 │   │   ├── main.py              # FastAPI app, lifespan (migrations + store setup)
 │   │   ├── config.py            # env-driven config
 │   │   ├── agent.py             # graph entrypoint (run_agent)
-│   │   ├── prompts.py           # system prompts for triage/specialists/memory
 │   │   ├── schemas.py           # request/response Pydantic models
 │   │   ├── store.py             # AsyncPostgresStore (vector memory)
 │   │   ├── routers/             # /chat, /memory, /session endpoints
-│   │   ├── db/                  # connection pool + migrations.py (schema + sessions/messages queries)
+│   │   ├── db/                  # connection pool + migrations.py (schema + session/message queries)
 │   │   └── services/
-│   │       ├── graph.py         # LangGraph nodes + wiring (the multi-agent graph)
+│   │       ├── graph.py         # LangGraph nodes + wiring, including the memory node
+│   │       ├── prompts.py       # system prompts for triage, specialists and memory
 │   │       ├── state.py         # AgentState TypedDict
-│   │       └── helper.py        # LLM factory, specialist factory, progressive context
-│   ├── tests/                   # DeepEval LLM eval tests
-│   └── venv/
+│   │       └── helper.py        # LLM factory, specialist runner, progressive context
+│   └── tests/                   # DeepEval LLM eval tests
 ├── frontend/
 │   └── app/
 │       ├── page.tsx             # demo dashboard
-│       ├── config.ts            # API base URL, intent mapping, demo users
+│       ├── config.ts            # API base URL, intent mapping, demo customers
 │       └── components/          # ChatPanel, FlowPanel (trace), MemoryPanel, UserSelector
-├── customer_support_agent_v3.html  # standalone static mockup (open in browser)
-└── csa_agent_workflow.svg          # workflow diagram
+└── csa_agent_workflow.svg       # the diagram above
 ```
 
 ## Prerequisites
 
-1. **Python 3.11+**
-2. **Node.js 20+**
-3. **Docker** — runs the local Postgres database (see Setup step 1). The database needs the **pgvector** extension, which the plain `postgres` image doesn't have, so use the `pgvector/pgvector` image. Any other pgvector-enabled Postgres works too — just point `DATABASE_URL` at it. The vector store tables are created automatically by LangGraph on startup.
-4. **OpenRouter API key** — for chat + embeddings.
-
-## Quick start (already set up)
-
-If `backend/venv`, `backend/.env`, `frontend/node_modules` and the `csa-postgres` container already exist, start the database, then use two terminals:
-
-```bash
-docker start csa-postgres
-```
-
-```bash
-# Terminal 1 — backend (http://localhost:8000)
-cd backend
-source venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
-
-```bash
-# Terminal 2 — frontend (http://localhost:3000)
-cd frontend
-npm run dev
-```
-
-Then open **http://localhost:3000**. API docs (Swagger) are at **http://localhost:8000/docs**.
+- **Python 3.11+**
+- **Node.js 20+**
+- **Docker**, for the local Postgres. It needs the **pgvector** extension, which the plain `postgres` image doesn't have, so use `pgvector/pgvector`. Any other pgvector-enabled Postgres works too: just point `DATABASE_URL` at it.
+- An **OpenRouter API key**, used for both chat and embeddings.
 
 ## Setup (first time)
 
-### 1. Start Postgres (Docker)
+### 1. Start Postgres
 
 ```bash
 docker run -d --name csa-postgres \
@@ -112,15 +101,16 @@ docker run -d --name csa-postgres \
   pgvector/pgvector:pg16
 ```
 
-The `csa-pgdata` volume keeps your data when the container is stopped or removed. Later, `docker start csa-postgres` / `docker stop csa-postgres` is all you need.
+The `csa-pgdata` volume keeps your data when the container stops. After this, `docker start csa-postgres` and `docker stop csa-postgres` are all you need.
 
 ### 2. Configure the backend
 
-Create `backend/.env` (it is gitignored — never commit it):
+Create `backend/.env` (it is gitignored):
 
 ```env
 OPENROUTER_API_KEY=sk-or-v1-...
 CHAT_MODEL=openai/gpt-4o-mini
+MEMORY_MODEL=openai/gpt-4o
 CHAT_TEMPERATURE=0.7
 CORS_ORIGINS=http://localhost:3000
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
@@ -128,22 +118,23 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
 
 | Variable | Description |
 |----------|-------------|
-| `OPENROUTER_API_KEY` | OpenRouter key used for the chat model **and** embeddings |
-| `CHAT_MODEL` | Any OpenRouter model ID |
-| `CHAT_TEMPERATURE` | Sampling temperature (default `0.7`) |
+| `OPENROUTER_API_KEY` | OpenRouter key, used for the chat models **and** embeddings |
+| `CHAT_MODEL` | OpenRouter model ID for triage and the specialists |
+| `MEMORY_MODEL` | Model for the memory node only. Optional, defaults to `CHAT_MODEL`. A stronger model here makes dedupe and resolution reliable |
+| `CHAT_TEMPERATURE` | Sampling temperature for the chat agents (default `0.7`). The memory node always uses `0` |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default `http://localhost:3000`) |
-| `DATABASE_URL` | Postgres connection string (the value above matches the Docker container from step 1) |
+| `DATABASE_URL` | Postgres connection string. The value above matches the container from step 1 |
 
 ### 3. Run the backend (port 8000)
 
 ```bash
 cd backend
-python3 -m venv venv && source venv/bin/activate   # skip if venv already exists
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-On startup it runs migrations and initializes the vector store. Verify:
+On startup it creates the tables and the vector store. To check it:
 
 ```bash
 curl http://localhost:8000/health
@@ -158,66 +149,85 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:3000**. Pick a customer, send messages, and watch:
+Open **http://localhost:3000**. Pick a customer and send a few messages, then watch:
 
-- **Flow panel** — the live agent trace: triage classification → specialist → memory writes
-- **Memory panel** — that customer's stored issues (open / resolved badges)
+- the **Flow panel**: the live trace, from triage to the specialist to memory changes
+- the **Memory panel**: that customer's issues with open or resolved badges
+
+API docs (Swagger) are at **http://localhost:8000/docs**.
+
+## Running again later
+
+```bash
+docker start csa-postgres
+```
+
+```bash
+cd backend && source venv/bin/activate && uvicorn app.main:app --reload --port 8000
+```
+
+```bash
+cd frontend && npm run dev
+```
+
+## Try it
+
+Pick **Priya Sharma** (a new customer, so memory starts empty) and send:
+
+1. `Hi, I was charged twice on invoice INV-2041 this month.` The message goes to the Billing Agent and one open issue is saved.
+2. `Also, I can't log in to my account, it keeps timing out.` This goes to Tech Support, and there are now two open issues.
+3. `Just checking — INV-2041 still shows two charges.` Still two issues: no duplicate is saved.
+4. `The refund for INV-2041 came through! But my order ORD-77 still hasn't shipped.` The billing issue is resolved and an order issue is opened. The trace shows `Memory: 1 stored, 1 resolved`.
+5. Click **New conversation** and ask `Hey, any news on my login problem?` The agent knows about the login issue without being told again.
 
 ## API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/chat/respond` | Send a message `{text, user_id, session_id}` → reply + intent + specialist + trace + `memories_updated` |
-| `GET` | `/memory/{user_id}` | All stored memories for a user |
-| `DELETE` | `/memory/{user_id}` | Clear a user's memories |
+| `POST` | `/chat/respond` | Send `{text, user_id, session_id}`. Returns the reply, intent, specialist, trace and `memories_updated` |
+| `GET` | `/memory/{user_id}` | All stored memories for a customer |
+| `DELETE` | `/memory/{user_id}` | Clear a customer's memories |
 | `GET` | `/session/{session_id}` | Full message history for a session |
-| `DELETE` | `/session/{session_id}` | Delete a session's messages |
-| `GET` | `/health` | DB connectivity + version |
-
-## Memory model
-
-Memories are stored in the LangGraph vector store under the namespace `("memories", user_id)`, each item shaped like:
-
-```json
-{ "text": "Double charge on invoice INV-123", "badge": "open", "date": "Today" }
-```
-
-- `badge: "open"` — new/unresolved issue; key = first 8 chars of MD5(text) so duplicates overwrite instead of accumulating
-- `badge: "res"` — customer confirmed it's fixed; the memory node matches the confirmation back to an open issue and flips its badge
-
-Specialists never ask for information already in a customer's history, because the memory context is injected into their system prompt before every reply.
+| `DELETE` | `/session/{session_id}` | Delete a session and its messages |
+| `GET` | `/health` | Database connectivity and version |
 
 ## Tests
 
-DeepEval LLM-evaluation tests (they run the real graph through OpenRouter, so they consume tokens). The test dependencies are not in `requirements.txt` yet, so install them once:
+DeepEval LLM evaluations. They call the real models through OpenRouter, so they use tokens. The test dependencies aren't in `requirements.txt`, so install them once:
 
 ```bash
 cd backend
 source venv/bin/activate
-pip install deepeval pytest pytest-asyncio   # first time only
-pytest                                        # single-turn tests
-deepeval test run tests/test_conversations.py -v -s   # multi-turn tests (run separately)
+pip install deepeval pytest pytest-asyncio
 ```
 
-- `test_memory_modification.py` / `test_memory_retrieval.py` use an in-memory store (no Postgres needed).
-- `test_whole_agent.py` / `test_conversations.py` hit the real Postgres from `DATABASE_URL`.
+```bash
+pytest
+```
 
-## Notes / gotchas
+```bash
+deepeval test run tests/test_conversations.py -v -s
+```
 
-- `frontend/app/config.ts` hardcodes `API_BASE_URL = http://localhost:8000` — update it if you move the backend.
-- The CORS env var is `CORS_ORIGINS` (not `ALLOW_ORIGINS`); if unset it defaults to `http://localhost:3000`.
-- `backend/.env` is gitignored — keep secrets there and never commit it.
-- There is no auth: any client can read/clear any user's memory by `user_id`. Fine for a local demo, not for production.
-- `customer_support_agent_v3.html` and `csa_agent_workflow.svg` are local-only (gitignored); the HTML is a self-contained UI mockup with canned responses.
+The first command runs the single-turn tests, and the second runs the multi-turn tests separately.
+
+- `test_memory_modification.py` and `test_memory_retrieval.py` use an in-memory store, so they don't need Postgres.
+- `test_whole_agent.py` and `test_conversations.py` use the real Postgres from `DATABASE_URL`.
+
+## Limitations
+
+- **No auth.** Any client can read or clear any customer's memory by `user_id`. That's fine for a local demo, not for production.
+- The specialists don't call real billing, order or account systems; they reply from their prompt and the customer's memory.
+- `frontend/app/config.ts` hardcodes `API_BASE_URL = http://localhost:8000`. Change it if you move the backend.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| `RuntimeError: OPENROUTER_API_KEY not set` | `backend/.env` is missing, or you started uvicorn from outside `backend/` |
-| Backend hangs/fails on startup (`Connect call failed ... 5432`) | The database isn't running: `docker start csa-postgres` (check with `docker ps`). Startup runs migrations and needs the DB |
-| `extension "vector" is not available` | The Postgres image has no pgvector — use `pgvector/pgvector:pg16`, not `postgres` |
+| `RuntimeError: OPENROUTER_API_KEY not set` | `backend/.env` is missing, or uvicorn was started from outside `backend/` |
+| Backend fails on startup with `Connect call failed ... 5432` | The database isn't running: `docker start csa-postgres` (check with `docker ps`) |
+| `extension "vector" is not available` | The image has no pgvector. Use `pgvector/pgvector:pg16`, not `postgres` |
 | `Address already in use` | Something is already on the port: `lsof -ti :8000 \| xargs kill` (or `:3000`) |
-| Frontend shows network/CORS errors | Backend isn't running, or `CORS_ORIGINS` doesn't include `http://localhost:3000` |
-| Frontend loops on `FATAL: An unexpected Turbopack error` / panic log says `Next.js package not found` | Stale build cache (usually after moving the project folder): `rm -rf frontend/.next` and restart `npm run dev` |
-| `ModuleNotFoundError: deepeval` | Install the test deps (see **Tests**) |
+| Frontend shows network or CORS errors | The backend isn't running, or `CORS_ORIGINS` doesn't include `http://localhost:3000` |
+| Frontend loops on `An unexpected Turbopack error` and the log says `Next.js package not found` | Stale build cache, usually after moving the project folder: `rm -rf frontend/.next`, then restart `npm run dev` |
+| `ModuleNotFoundError: deepeval` | Install the test dependencies (see **Tests**) |
