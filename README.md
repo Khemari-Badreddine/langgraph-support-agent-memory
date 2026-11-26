@@ -1,10 +1,10 @@
 # Langgraph support agent memory
 
-==================================================================================================
+==================================================================================
 
 Honestly this was a fun project that took a while to finish but taught me a lot, but i built this to try out different ways for an agent to manage memory, and to trace each step of the graph as it runs. most of the work went into the memory node: early versions saved the same issue twice when a customer reworded it, and getting dedupe and resolution right took a few rewrites and, in the end, a stronger model just for that node.
 
-==================================================================================================
+====================================================================================
 
 
 A LangGraph customer support app with per-customer issue memory. A triage agent routes each message to a specialist (billing, tech, order or general). A memory node then keeps a per-customer list of issues: it saves new ones, marks fixed ones as resolved, and never saves the same problem twice, even when the customer words it differently. Memory survives across conversations, so a returning customer doesn't have to explain the problem again.
