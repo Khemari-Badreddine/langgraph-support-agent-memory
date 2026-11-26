@@ -1,12 +1,11 @@
-# Stateful Multi-Agent Customer Support
+# Langgraph support agent memory
 
-=======================
+==================================================================================================
 
-honestly this was a fun project that took a while to finish but taught me a lot, but i built this to try out different ways for an agent to manage memory, and to trace each step of the graph as it runs. most of the work went into the memory node: early versions saved the same issue twice when a customer reworded it, and getting dedupe and resolution right took a few rewrites and, in the end, a stronger model just for that node.
+Honestly this was a fun project that took a while to finish but taught me a lot, but i built this to try out different ways for an agent to manage memory, and to trace each step of the graph as it runs. most of the work went into the memory node: early versions saved the same issue twice when a customer reworded it, and getting dedupe and resolution right took a few rewrites and, in the end, a stronger model just for that node.
 
-=======================
+==================================================================================================
 
-The complete explanation :)
 
 A LangGraph customer support app with per-customer issue memory. A triage agent routes each message to a specialist (billing, tech, order or general). A memory node then keeps a per-customer list of issues: it saves new ones, marks fixed ones as resolved, and never saves the same problem twice, even when the customer words it differently. Memory survives across conversations, so a returning customer doesn't have to explain the problem again.
 
@@ -65,39 +64,6 @@ Conversation history is stored separately in two Postgres tables, `sessions` and
 | Database  | **Postgres 16 + pgvector** in Docker: conversation history plus the LangGraph vector store |
 | Frontend  | Next.js 16 (App Router), React 19, Tailwind CSS 4, TypeScript |
 | Tests     | DeepEval LLM evaluations with pytest |
-
-## Repository layout
-
-```
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app, lifespan (migrations + store setup)
-│   │   ├── config.py            # env-driven config
-│   │   ├── agent.py             # graph entrypoint (run_agent)
-│   │   ├── schemas.py           # request/response Pydantic models
-│   │   ├── store.py             # AsyncPostgresStore (vector memory)
-│   │   ├── routers/             # /chat, /memory, /session endpoints
-│   │   ├── db/                  # connection pool + migrations.py (schema + session/message queries)
-│   │   └── services/
-│   │       ├── graph.py         # LangGraph nodes + wiring, including the memory node
-│   │       ├── prompts.py       # system prompts for triage, specialists and memory
-│   │       ├── state.py         # AgentState TypedDict
-│   │       └── helper.py        # LLM factory, specialist runner, progressive context
-│   └── tests/                   # DeepEval LLM eval tests
-├── frontend/
-│   └── app/
-│       ├── page.tsx             # demo dashboard
-│       ├── config.ts            # API base URL, intent mapping, demo customers
-│       └── components/          # ChatPanel, FlowPanel (trace), MemoryPanel, UserSelector
-└── csa_agent_workflow.svg       # the diagram above
-```
-
-## Prerequisites
-
-- **Python 3.11+**
-- **Node.js 20+**
-- **Docker**, for the local Postgres. It needs the **pgvector** extension, which the plain `postgres` image doesn't have, so use `pgvector/pgvector`. Any other pgvector-enabled Postgres works too: just point `DATABASE_URL` at it.
-- An **OpenRouter API key**, used for both chat and embeddings.
 
 ## Setup (first time)
 
