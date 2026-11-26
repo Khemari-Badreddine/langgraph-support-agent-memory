@@ -13,7 +13,9 @@ A LangGraph customer support app with per-customer issue memory. A triage agent 
 
 ## Demo
 
-https://github.com/user-attachments/assets/d7d7d499-833c-4b10-a52d-5286c27daf4b
+
+https://github.com/user-attachments/assets/f0b0ec58-b39f-42de-82a9-a07fd918a3fe
+
 
 ## Architecture
 
